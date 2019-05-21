@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.o2o.VipAddressMapper">
+    <select id="vipAddressList" resultType="erp.chain.domain.o2o.VipAddress">
+        SELECT * FROM vip_address va WHERE is_deleted=0
+        <if test="queryStr != null and queryStr != ''">
+            AND (va.consignee LIKE '%${queryStr}%' OR va.mobile_phone LIKE '%${queryStr}%')
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND va.vip_id =#{vipId}
+        </if>
+        <if test="offset != null and rows != null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="findByCondition" resultType="erp.chain.domain.o2o.VipAddress">
+        SELECT * FROM vip_address WHERE is_deleted=0
+        <if test="telPhone != null and telPhone != ''">
+            AND tel_phone =#{telPhone}
+        </if>
+        <if test="mobilePhone != null and mobilePhone != ''">
+            AND mobile_phone =#{mobilePhone}
+        </if>
+        <if test="id != null and id != ''">
+            AND id =#{id}
+        </if>
+    </select>
+    <update id="update" parameterType="map" >
+        update vip_address
+        <set >
+            <if test="vipId != null and vipId != ''">
+                vip_id = #{vipId,jdbcType=BIGINT},
+            </if>
+            <if test="consignee != null" >
+                consignee = #{consignee,jdbcType=VARCHAR},
+            </if>
+            <if test="area != null" >
+                area = #{area,jdbcType=VARCHAR},
+            </if>
+            <if test="address != null" >
+                address = #{address,jdbcType=VARCHAR},
+            </if>
+            <if test="mobilePhone != null" >
+                mobile_phone = #{mobilePhone,jdbcType=VARCHAR},
+            </if>
+            <if test="telPhone != null" >
+                tel_phone = #{telPhone,jdbcType=VARCHAR},
+            </if>
+            <if test="isDefault != null" >
+                is_default = #{isDefault,jdbcType=TINYINT},
+            </if>
+            <if test="createBy != null" >
+                create_by = #{createBy,jdbcType=VARCHAR},
+            </if>
+            <if test="createAt != null" >
+                create_at = #{createAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="lastUpdateBy != null" >
+                last_update_by = #{lastUpdateBy,jdbcType=VARCHAR},
+            </if>
+            <if test="lastUpdateAt != null" >
+                last_update_at = #{lastUpdateAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="isDeleted != null" >
+                is_deleted = #{isDeleted,jdbcType=BIT},
+            </if>
+            <if test="areaName != null" >
+                area_name = #{areaName,jdbcType=VARCHAR},
+            </if>
+            <if test="version != null" >
+                version = #{version,jdbcType=BIGINT},
+            </if>
+            <if test="localId != null" >
+                local_id = #{localId,jdbcType=BIGINT},
+            </if>
+            <if test="tenantId != null" >
+                tenant_id = #{tenantId,jdbcType=BIGINT},
+            </if>
+        </set>
+        where
+            id = #{id,jdbcType=BIGINT}
+    </update>
+    <insert id="insert" parameterType="map" >
+        insert into vip_address (id, vip_id, consignee,
+        area, address, mobile_phone,
+        tel_phone, is_default, create_by,
+        create_at, last_update_by, last_update_at,
+        is_deleted, area_name, version, local_id,tenant_id
+        )
+        values (#{id,jdbcType=BIGINT}, #{vipId,jdbcType=BIGINT}, #{consignee,jdbcType=VARCHAR},
+        #{area,jdbcType=VARCHAR}, #{address,jdbcType=VARCHAR}, #{mobilePhone,jdbcType=VARCHAR},
+        #{telPhone,jdbcType=VARCHAR}, #{isDefault,jdbcType=TINYINT}, #{createBy,jdbcType=VARCHAR},
+        #{createAt,jdbcType=TIMESTAMP}, #{lastUpdateBy,jdbcType=VARCHAR}, #{lastUpdateAt,jdbcType=TIMESTAMP},
+        #{isDeleted,jdbcType=BIT}, #{areaName,jdbcType=VARCHAR},#{version,jdbcType=BIGINT}, #{localId,jdbcType=BIGINT},#{tenantId,jdbcType=BIGINT}
+        )
+    </insert>
+    <insert id="insert1" parameterType="VipAddress" >
+        insert into vip_address (id, vip_id, consignee,
+        area, address, mobile_phone,
+        tel_phone, is_default, create_by,
+        create_at, last_update_by, last_update_at,
+        is_deleted, area_name, version, local_id,tenant_id
+        )
+        values (#{id,jdbcType=BIGINT}, #{vipId,jdbcType=BIGINT}, #{consignee,jdbcType=VARCHAR},
+        #{area,jdbcType=VARCHAR}, #{address,jdbcType=VARCHAR}, #{mobilePhone,jdbcType=VARCHAR},
+        #{telPhone,jdbcType=VARCHAR}, #{isDefault,jdbcType=TINYINT}, #{createBy,jdbcType=VARCHAR},
+        #{createAt,jdbcType=TIMESTAMP}, #{lastUpdateBy,jdbcType=VARCHAR}, #{lastUpdateAt,jdbcType=TIMESTAMP},
+        #{isDeleted,jdbcType=BIT}, #{areaName,jdbcType=VARCHAR},#{version,jdbcType=BIGINT}, #{localId,jdbcType=BIGINT},#{tenantId,jdbcType=BIGINT}
+        )
+    </insert>
+
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineDietOrderInfo">
+        SELECT * FROM diet_order_info <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="findAll" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineDietOrderInfo">
+        SELECT * FROM diet_order_info <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+</mapper>

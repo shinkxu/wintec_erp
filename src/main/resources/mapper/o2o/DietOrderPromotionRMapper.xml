@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.DietOrderPromotionRMapper" >
+
+
+  <select id="select" parameterType="map" resultType="erp.chain.domain.o2o.DietOrderPromotionR">
+    select * from diet_order_promotion_r
+    <where>
+      <if test="orderId != null">
+        AND order_id = #{orderId}
+      </if>
+    </where>
+  </select>
+
+</mapper>

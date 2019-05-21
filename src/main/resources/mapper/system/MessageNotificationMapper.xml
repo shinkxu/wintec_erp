@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.system.MessageNotificationMapper">
+
+    <insert id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO `message_notification`
+        (`send_time`, `status`, `type`, `target_type`, `is_send_apos`, `is_send_wpos`, `title`,
+         `content`, `url`, `create_emp_id`, `create_at`, `create_by`, `last_update_at`,
+         `last_update_by`, `is_deleted`, `display_type`, `is_new_user`, `is_old_user`, `tenant_id`)
+        VALUES
+        (#{sendTime}, #{status}, #{type}, #{targetType}, #{isSendApos}, #{isSendWpos}, #{title},
+        #{content}, #{url}, #{createEmpId}, #{createAt}, #{createBy}, #{lastUpdateAt},
+        #{lastUpdateBy}, #{isDeleted}, #{displayType}, #{isNewUser}, #{isOldUser}, #{tenantId});
+
+    </insert>
+    <update id="update">
+        UPDATE message_notification
+        <set>
+            <if test="sendTime != null">
+                send_time = #{sendTime},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="type != null">
+                type = #{type},
+            </if>
+            <if test="targetType != null">
+                target_type = #{targetType},
+            </if>
+            <if test="isSendApos != null">
+                is_send_apos = #{isSendApos},
+            </if>
+            <if test="isSendWpos != null">
+                is_send_wpos = #{isSendWpos},
+            </if>
+            <if test="title != null">
+                title = #{title},
+            </if>
+            <if test="content != null">
+                content = #{content},
+            </if>
+            <if test="url != null">
+                url = #{url},
+            </if>
+            <if test="createEmpId != null">
+                create_emp_id = #{createEmpId},
+            </if>
+            <if test="createAt != null">
+                create_at = #{createAt},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy},
+            </if>
+            <if test="lastUpdateAt != null">
+                last_update_at = #{lastUpdateAt},
+            </if>
+            <if test="lastUpdateBy != null">
+                last_update_by = #{lastUpdateBy},
+            </if>
+            <if test="isDeleted != null">
+                is_deleted = #{isDeleted},
+            </if>
+            <if test="displayType != null">
+                display_type = #{displayType},
+            </if>
+            <if test="isNewUser != null">
+                is_new_user = #{isNewUser},
+            </if>
+            <if test="isOldUser != null">
+                is_old_user = #{isOldUser},
+            </if>
+            <if test="tenantId != null">
+                tenant_id = #{tenantId},
+            </if>
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+    <select id="getMessageList" resultType="mapUnderscoreToCamelCase">
+        <include refid="getMessageListMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="countMessageList" resultType="long">
+        <include refid="countHead"/>
+        <include refid="getMessageListMain"/>
+        <include refid="countFoot"/>
+    </select>
+    <sql id="countHead">
+        SELECT count(*) FROM (
+    </sql>
+    <sql id="countFoot">
+        )t
+    </sql>
+    <sql id="pageFoot">
+        <if test="offset != null and rows!=null">
+            LIMIT ${offset},${rows}
+        </if>
+    </sql>
+    <sql id="getMessageListMain">
+        SELECT m.*,e.name emp_name FROM message_notification m
+        LEFT JOIN employee e ON m.tenant_id=e.tenant_id AND m.create_emp_id=e.id
+        WHERE m.tenant_id=${tenantId} AND m.is_deleted=0
+        <if test="queryStr != null and queryStr!=''">
+            AND m.title LIKE '%${queryStr}%'
+        </if>
+        <if test="startDate != null and startDate!=''">
+            AND m.create_at &gt;= '${startDate}:00'
+        </if>
+        <if test="endDate != null and endDate!=''">
+            AND m.create_at &lt;= '${endDate}:59'
+        </if>
+        <if test="type != null and type!=''">
+            AND m.type = #{type}
+        </if>
+        <if test="empId != null and empId!=''">
+            AND m.create_emp_id = #{empId}
+        </if>
+        <if test="targetType != null and targetType!=''">
+            AND m.target_type = #{targetType}
+        </if>
+        <if test="status != null and status!=''">
+            AND m.status = #{status}
+        </if>
+        <if test="targetSystem != null and targetSystem!=''">
+            <if test="targetSystem ==1">
+                AND m.is_send_apos = 1
+            </if>
+            <if test="targetSystem ==2">
+                AND m.is_send_wpos = 1
+            </if>
+        </if>
+        ORDER BY m.create_at DESC
+    </sql>
+    <select id="getMessageById" resultType="erp.chain.domain.system.MessageNotification">
+        SELECT * FROM message_notification WHERE tenant_id = ${tenantId} AND is_deleted=0 AND id=${id}
+    </select>
+    <select id="messageById" resultType="mapUnderscoreToCamelCase">
+        SELECT m.*,e.name emp_name FROM message_notification m
+        LEFT JOIN employee e ON m.tenant_id=e.tenant_id AND m.create_emp_id=e.id
+        WHERE m.id=#{id} AND m.tenant_id=${tenantId} AND m.is_deleted=0
+    </select>
+    <select id="getMessageBranch" resultType="mapUnderscoreToCamelCase">
+        SELECT b.* FROM message_branch_r mr INNER JOIN branch b ON b.id=mr.branch_id AND b.tenant_id=mr.tenant_id WHERE mr.tenant_id = ${tenantId} AND mr.message_notification_id=${messageId}
+    </select>
+    <delete id="deletedSendBranches">
+        DELETE FROM message_branch_r WHERE message_notification_id=${messageId}
+    </delete>
+    <insert id="saveSendBranches">
+        INSERT INTO message_branch_r (message_notification_id,branch_id,tenant_id)
+        VALUES
+        <foreach item="item" collection="branchIds" separator=",">
+            (${messageId},${item},${tenantId})
+        </foreach>
+    </insert>
+    <select id="getSendBranches" resultType="BigInteger">
+        SELECT branch_id FROM message_branch_r WHERE tenant_id=${tenantId} AND message_notification_id=${messageId}
+    </select>
+    <insert id="saveMessageReceipt" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO message_receipt
+        (message_notification_id,
+        employee_id,
+        employee_code,
+        employee_name,
+        branch_id,
+        branch_code,
+        branch_name,
+        tenant_id,
+        tenant_code,
+        tenant_name,
+        update_time,
+        status,
+        create_at,
+        create_by,
+        last_update_at,
+        last_update_by,
+        is_deleted)
+        VALUES (
+        #{messageNotificationId},
+        #{employeeId},
+        #{employeeCode},
+        #{employeeName},
+        #{branchId},
+        #{branchCode},
+        #{branchName},
+        #{tenantId},
+        #{tenantCode},
+        #{tenantName},
+        #{updateTime},
+        #{status},
+        #{createAt},
+        #{createBy},
+        #{lastUpdateAt},
+        #{lastUpdateBy},
+        #{isDeleted}
+        )
+    </insert>
+
+
+    <select id="listMessageReceipt" resultType="erp.chain.domain.system.MessageReceipt">
+        <include refid="listMessageReceiptMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="countMessageReceipt" resultType="long">
+        <include refid="countHead"/>
+        <include refid="listMessageReceiptMain"/>
+        <include refid="countFoot"/>
+    </select>
+    <sql id="listMessageReceiptMain">
+        SELECT * FROM message_receipt WHERE tenant_id=#{tenantId} AND is_deleted=0
+        <if test="messageId != null and messageId!=''">
+            AND message_notification_id=#{messageId}
+        </if>
+        <if test="queryStr != null and queryStr!=''">
+            AND (employee_code LIKE '%${queryStr}%' OR employee_code LIKE '%${queryStr}%' OR
+            branch_name LIKE '%${queryStr}%' OR branch_code LIKE '%${queryStr}%' OR
+            tenant_name LIKE '%${queryStr}%' OR tenant_code LIKE '%${queryStr}%')
+        </if>
+        ORDER BY update_time DESC
+    </sql>
+</mapper>

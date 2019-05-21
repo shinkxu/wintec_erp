@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.o2o.VipBookMapper">
+    <select id="vipBookList" resultType="erp.chain.domain.o2o.VipBook">
+        SELECT * FROM vip_book vb WHERE tenant_id=${tenantId} AND is_deleted=0
+        <if test="branchId != null and branchId != ''">
+            AND vb.branch_id =#{branchId}
+        </if>
+        <if test="queryStr != null and queryStr != ''">
+            AND vb.vip_code like '%${queryStr}%'
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vb.vip_id =#{vipId}
+        </if>
+        <if test="offset != null and rows != null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="findByCondition" resultType="erp.chain.domain.o2o.VipBook">
+        SELECT * FROM vip_book vb WHERE is_deleted=0
+        <if test="branchId != null and branchId != ''">
+            AND vb.branch_id =#{branchId}
+        </if>
+        <if test="tenantId != null and tenantId != ''">
+            AND vb.tenant_id =${tenantId}
+        </if>
+        <if test="token != null and token != ''">
+            AND vb.token =#{token}
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vb.vip_id =#{vipId}
+        </if>
+        <if test="paymentCode != null and paymentCode != ''">
+            AND vb.payment_code = '${paymentCode}'
+        </if>
+    </select>
+    <select id="findVipBookHistory" resultType="erp.chain.domain.o2o.VipBook">
+        SELECT * FROM vip_book vb WHERE is_deleted=0
+        <if test="branchId != null and branchId != ''">
+            AND vb.branch_id =#{branchId}
+        </if>
+        <if test="tenantId != null and tenantId != ''">
+            AND vb.tenant_id =${tenantId}
+        </if>
+        <if test="token != null and token != ''">
+            AND vb.token =#{token}
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vb.vip_id =#{vipId}
+        </if>
+        <if test="paymentCode != null and paymentCode != ''">
+            AND vb.payment_code = '${paymentCode}'
+        </if>
+        <if test="amount != null and amount != ''">
+            AND vb.total = #{amount}
+        </if>
+        limit 1
+    </select>
+    <insert id="addVipBook" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO vip_book (tenant_id,branch_id,book_type,operate_user_id,
+        operate_by,operate_at,vip_code,payment_code,
+        total_score,vip_score,sum_consume,total,
+        real_total,memo,create_by,create_at,
+        last_update_by,last_update_at,is_deleted,
+        vip_id,version,local_id,token,store_from,emp_id)
+        VALUES
+        (#{tenantId, jdbcType=BIGINT},#{branchId, jdbcType=BIGINT},#{bookType, jdbcType=TINYINT},#{operateUserId, jdbcType=BIGINT},
+        #{operateBy, jdbcType=VARCHAR},#{operateAt, jdbcType=TIMESTAMP},#{vipCode, jdbcType=VARCHAR},#{paymentCode, jdbcType=VARCHAR},
+        #{totalScore,jdbcType=DECIMAL},#{vipScore,jdbcType=DECIMAL},#{sumConsume,jdbcType=DECIMAL},#{total,jdbcType=DECIMAL},
+        #{realTotal,jdbcType=DECIMAL},#{memo, jdbcType=VARCHAR},#{createBy,jdbcType=VARCHAR},#{createAt, jdbcType=TIMESTAMP},
+        #{lastUpdateBy, jdbcType=VARCHAR},#{lastUpdateAt, jdbcType=TIMESTAMP},0,
+        #{vipId, jdbcType=BIGINT},#{version, jdbcType=BIGINT},#{localId, jdbcType=BIGINT},#{token,jdbcType=VARCHAR},
+        #{storeFrom,jdbcType=VARCHAR},#{empId, jdbcType=BIGINT})
+    </insert>
+    <insert id="insert" parameterType="VipBook" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO vip_book (tenant_id,branch_id,book_type,operate_user_id,
+        operate_by,operate_at,vip_code,payment_code,
+        total_score,vip_score,sum_consume,total,
+        real_total,memo,create_by,create_at,
+        last_update_by,last_update_at,is_deleted,
+        vip_id,version,local_id,token,store_from,emp_id)
+        VALUES
+        (#{tenantId, jdbcType=BIGINT},#{branchId, jdbcType=BIGINT},#{bookType, jdbcType=TINYINT},#{operateUserId, jdbcType=BIGINT},
+        #{operateBy, jdbcType=VARCHAR},#{operateAt, jdbcType=TIMESTAMP},#{vipCode, jdbcType=VARCHAR},#{paymentCode, jdbcType=VARCHAR},
+        #{totalScore,jdbcType=DECIMAL},#{vipScore,jdbcType=DECIMAL},#{sumConsume,jdbcType=DECIMAL},#{total,jdbcType=DECIMAL},
+        #{realTotal,jdbcType=DECIMAL},#{memo, jdbcType=VARCHAR},#{createBy,jdbcType=VARCHAR},#{createAt, jdbcType=TIMESTAMP},
+        #{lastUpdateBy, jdbcType=VARCHAR},#{lastUpdateAt, jdbcType=TIMESTAMP},0,
+        #{vipId, jdbcType=BIGINT},#{version, jdbcType=BIGINT},#{localId, jdbcType=BIGINT},#{token,jdbcType=VARCHAR},
+        #{storeFrom,jdbcType=VARCHAR},#{empId, jdbcType=BIGINT})
+    </insert>
+    <select id="findVipBookById" resultType="erp.chain.domain.o2o.VipBook">
+        SELECT * FROM vip_book WHERE is_deleted=0 AND id=#{id}
+    </select>
+
+    <update id="updateVipBook" parameterType="map">
+        UPDATE vip_book
+        <set>
+            <if test="tenantId != null">
+                tenant_id = #{tenantId, jdbcType=BIGINT},
+            </if>
+            <if test="branchId != null">
+                branch_id = #{branchId, jdbcType=BIGINT},
+            </if>
+            <if test="bookType != null">
+                book_type = #{bookType, jdbcType=TINYINT},
+            </if>
+            <if test="operateUserId != null">
+                operate_user_id = #{operateUserId, jdbcType=BIGINT},
+            </if>
+            <if test="operateBy != null">
+                operate_by = #{operateBy, jdbcType=VARCHAR},
+            </if>
+            <if test="operateAt != null">
+                operate_at = #{operateAt, jdbcType=TIMESTAMP},
+            </if>
+            <if test="vipCode != null">
+                vip_code = #{vipCode, jdbcType=VARCHAR},
+            </if>
+            <if test="paymentCode != null">
+                payment_code = #{paymentCode, jdbcType=VARCHAR},
+            </if>
+            <if test="totalScore != null">
+                total_score = #{totalScore,jdbcType=DECIMAL},
+            </if>
+            <if test="vipScore != null">
+                vip_score = #{vipScore,jdbcType=DECIMAL},
+            </if>
+            <if test="sumConsume != null">
+                sum_consume = #{sumConsume,jdbcType=DECIMAL},
+            </if>
+            <if test="total != null">
+                total = #{total,jdbcType=DECIMAL},
+            </if>
+            <if test="realTotal != null">
+                real_total = #{realTotal,jdbcType=DECIMAL},
+            </if>
+            <if test="memo != null">
+                memo = #{memo, jdbcType=VARCHAR},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy, jdbcType=VARCHAR},
+            </if>
+            <if test="createAt != null">
+                create_at = #{createAt, jdbcType=TIMESTAMP},
+            </if>
+
+            <if test="lastUpdateBy != null">
+                last_update_by = #{lastUpdateBy, jdbcType=VARCHAR},
+            </if>
+            <if test="lastUpdateAt != null">
+                last_update_at = #{lastUpdateAt, jdbcType=TIMESTAMP},
+            </if>
+            <if test="isDeleted != null">
+                is_deleted = #{isDeleted, jdbcType=BIT},
+            </if>
+            <if test="vipId != null">
+                vip_id = #{vipId, jdbcType=BIGINT},
+            </if>
+            <if test="version != null">
+                version = #{version, jdbcType=BIGINT},
+            </if>
+            <if test="localId != null">
+                local_id = #{localId, jdbcType=BIGINT}
+            </if>
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+    <update id="update" parameterType="erp.chain.domain.o2o.VipBook">
+        UPDATE vip_book
+        <set>
+            <if test="tenantId != null">
+                tenant_id = #{tenantId, jdbcType=BIGINT},
+            </if>
+            <if test="branchId != null">
+                branch_id = #{branchId, jdbcType=BIGINT},
+            </if>
+            <if test="bookType != null">
+                book_type = #{bookType, jdbcType=TINYINT},
+            </if>
+            <if test="operateUserId != null">
+                operate_user_id = #{operateUserId, jdbcType=BIGINT},
+            </if>
+            <if test="operateBy != null">
+                operate_by = #{operateBy, jdbcType=VARCHAR},
+            </if>
+            <if test="operateAt != null">
+                operate_at = #{operateAt, jdbcType=TIMESTAMP},
+            </if>
+            <if test="vipCode != null">
+                vip_code = #{vipCode, jdbcType=VARCHAR},
+            </if>
+            <if test="paymentCode != null">
+                payment_code = #{paymentCode, jdbcType=VARCHAR},
+            </if>
+            <if test="totalScore != null">
+                total_score = #{totalScore,jdbcType=DECIMAL},
+            </if>
+            <if test="vipScore != null">
+                vip_score = #{vipScore,jdbcType=DECIMAL},
+            </if>
+            <if test="sumConsume != null">
+                sum_consume = #{sumConsume,jdbcType=DECIMAL},
+            </if>
+            <if test="total != null">
+                total = #{total,jdbcType=DECIMAL},
+            </if>
+            <if test="realTotal != null">
+                real_total = #{realTotal,jdbcType=DECIMAL},
+            </if>
+            <if test="memo != null">
+                memo = #{memo, jdbcType=VARCHAR},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy, jdbcType=VARCHAR},
+            </if>
+            <if test="createAt != null">
+                create_at = #{createAt, jdbcType=TIMESTAMP},
+            </if>
+
+            <if test="lastUpdateBy != null">
+                last_update_by = #{lastUpdateBy, jdbcType=VARCHAR},
+            </if>
+            <if test="lastUpdateAt != null">
+                last_update_at = #{lastUpdateAt, jdbcType=TIMESTAMP},
+            </if>
+            <if test="isDeleted != null">
+                is_deleted = #{isDeleted, jdbcType=BIT},
+            </if>
+            <if test="vipId != null">
+                vip_id = #{vipId, jdbcType=BIGINT},
+            </if>
+            <if test="version != null">
+                version = #{version, jdbcType=BIGINT},
+            </if>
+            <if test="localId != null">
+                local_id = #{localId, jdbcType=BIGINT}
+            </if>
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+</mapper>

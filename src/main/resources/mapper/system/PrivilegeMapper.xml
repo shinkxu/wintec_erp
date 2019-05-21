@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.system.PrivilegeMapper">
+    <select id="rolePrivilege" resultType="mapUnderscoreToCamelCase">
+        SELECT * FROM s_role_privilege_r WHERE role_id=#{roleId} AND is_disable=0
+    </select>
+    <delete id="deleteOldPrivilege">
+        DELETE FROM s_role_privilege_r WHERE role_id=#{roleId}
+    </delete>
+    <insert id="saveRolePrivileges" parameterType="Map">
+        INSERT INTO s_role_privilege_r(privilege_id,role_id,limit_date,is_disable,tenant_id)
+        VALUES
+        <foreach item="privilege" collection="privileges" separator=",">
+            (#{privilege},#{roleId},NULL,0,#{tenantId})
+        </foreach>
+    </insert>
+</mapper>

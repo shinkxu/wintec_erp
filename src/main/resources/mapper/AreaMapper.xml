@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.AreaMapper">
+    <resultMap id="BaseResultMap" type="erp.chain.domain.Area">
+        <id column="id" property="id" javaType="java.math.BigInteger" jdbcType="BIGINT"></id>
+        <result column="tenant_id" javaType="java.math.BigInteger" property="tenantId" jdbcType="BIGINT"></result>
+        <result column="parent_id" javaType="java.math.BigInteger" property="parentId" jdbcType="BIGINT"></result>
+        <result column="code" property="code" javaType="string" jdbcType="VARCHAR"></result>
+        <result column="name" property="name" javaType="string" jdbcType="VARCHAR"></result>
+        <result column="memo" property="memo" javaType="string" jdbcType="VARCHAR"></result>
+        <result column="create_by" property="createBy" javaType="string" jdbcType="VARCHAR"></result>
+        <result column="create_at" property="createAt" javaType="java.util.Date" jdbcType="TIMESTAMP"></result>
+        <result column="last_update_by" property="lastUpdateBy" javaType="string" jdbcType="VARCHAR"></result>
+        <result column="last_update_at" property="lastUpdateAt" javaType="java.util.Date" jdbcType="TIMESTAMP"></result>
+        <result column="is_deleted" property="isDeleted" javaType="boolean" jdbcType="BIT"></result>
+    </resultMap>
+
+    <select id="queryAreaList" resultMap="BaseResultMap">
+        SELECT * FROM area WHERE area.tenant_id = ${tenantId} AND area.is_deleted = 0
+        <if test="authorityType!=null and authorityType != 1">
+            AND id IN (${userAreas})
+        </if>
+        <if test="parentId!=null">
+            AND parent_id = #{parentId}
+        </if>
+    </select>
+
+    <select id="find" resultMap="BaseResultMap">
+        SELECT * FROM area WHERE area.tenant_id = ${tenantId} AND area.id = #{id} AND area.is_deleted = 0
+    </select>
+
+    <select id="findByCondition" resultMap="BaseResultMap">
+        SELECT * FROM area WHERE is_deleted = 0
+        <if test="codeMap != null and codeMap != ''">
+            AND code Like '${codeMap}%'
+        </if>
+        <if test="tenantId != null and tenantId != ''">
+            AND tenant_id = ${tenantId}
+        </if>
+    </select>
+
+    <insert id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO area (id, tenant_id, parent_id, code, name, memo, create_by, create_at, last_update_by, last_update_at, is_deleted, group_code)
+        VALUES (#{id, jdbcType=BIGINT}, #{tenantId, jdbcType=BIGINT}, #{parentId, jdbcType=BIGINT},
+        #{code, jdbcType=VARCHAR}, #{name, jdbcType=VARCHAR}, #{memo, jdbcType=VARCHAR}, #{createBy,jdbcType=VARCHAR},
+        #{createAt, jdbcType=TIMESTAMP}, #{lastUpdateBy, jdbcType=VARCHAR}, #{lastUpdateAt, jdbcType=TIMESTAMP}, #{isDeleted, jdbcType=BIT}, #{groupCode, jdbcType=VARCHAR})
+    </insert>
+
+    <update id="update" parameterType="map">
+        UPDATE area
+        <set>
+            <if test="tenantId != null">
+                tenant_id = #{tenantId, jdbcType=BIGINT},
+            </if>
+            <if test="parentId != null">
+                parent_id = #{parentId, jdbcType=BIGINT},
+            </if>
+            <if test="code != null">
+                code = #{code, jdbcType=VARCHAR},
+            </if>
+            <if test="name != null">
+                name = #{name, jdbcType=VARCHAR},
+            </if>
+            <if test="memo != null">
+                memo = #{memo, jdbcType=VARCHAR},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy, jdbcType=VARCHAR},
+            </if>
+            <if test="groupCode != null">
+                group_code = #{groupCode, jdbcType=VARCHAR},
+            </if>
+            <if test="createAt != null">
+                create_at = #{createAt, jdbcType=TIMESTAMP},
+            </if>
+            <if test="lastUpdateBy != null">
+                last_update_by = #{lastUpdateBy, jdbcType=VARCHAR},
+            </if>
+            <if test="lastUpdateAt != null">
+                last_update_at = #{lastUpdateAt, jdbcType=TIMESTAMP},
+            </if>
+            <if test="isDeleted != null">
+                is_deleted = #{isDeleted, jdbcType=BIT},
+            </if>
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+
+    <select id="queryNextCode" resultType="string">
+        SELECT MAX(area.code) FROM area WHERE area.parent_id = #{parentId} AND area.tenant_id = ${tenantId}
+    </select>
+
+    <select id="findChildAreaCount" resultType="int">
+        SELECT COUNT(1) FROM `area` WHERE `area`.`tenant_id` = ${tenantId} AND `area`.`parent_id` = #{areaId} AND `area`.`is_deleted` = 0
+    </select>
+
+    <select id="findBranchCount" resultType="int">
+        SELECT COUNT(1) FROM `branch` WHERE `branch`.`tenant_id` = ${tenantId} AND `branch`.`area_id` = #{areaId} AND `branch`.`is_deleted` = 0
+    </select>
+
+    <select id="findAllByTenantId" resultMap="BaseResultMap">
+        SELECT * FROM area WHERE tenant_id = ${tenantId} AND is_deleted = 0
+    </select>
+
+    <!--区域列表-->
+    <select id="queryAreasList" resultType="mapUnderscoreToCamelCase">
+        SELECT * FROM area WHERE tenant_id = ${tenantId} AND is_deleted = 0
+        <if test="authorityType != 1">
+            AND id IN (${userAreas})
+        </if>
+    </select>
+    <select id="queryAreasListSum" resultType="java.lang.Long">
+        select count(1) from (SELECT * FROM area WHERE tenant_id = ${tenantId} AND is_deleted = 0
+        <if test="authorityType != 1">
+          AND id IN (${userAreas})
+        </if>
+        ) t
+    </select>
+</mapper>

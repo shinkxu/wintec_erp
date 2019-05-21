@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="erp.chain.mapper.supply.GoodsInvoicingMapper">
+    <insert id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO goods_invoicing (
+		tenant_id,
+		branch_id,
+		goods_id,
+		create_at,
+		create_by,
+		last_update_at,
+		last_update_by,
+		is_deleted,
+		invoicing_date,
+		begin_quantity,
+		begin_amount,
+		end_quantity,
+		end_amount,
+		cg_in_quantity,
+		cg_in_amount,
+		cg_out_quantity,
+		cg_out_amount,
+		ly_in_quantity,
+		ly_in_amount,
+		ly_out_quantity,
+		ly_out_amount,
+		ps_in_quantity,
+		ps_in_amount,
+		ps_out_quantity,
+		ps_out_amount,
+		jg_in_quantity,
+		jg_in_amount,
+		jg_out_quantity,
+		jg_out_amount,
+		sy_in_quantity,
+		sy_in_amount,
+		sy_out_quantity,
+		sy_out_amount,
+		pd_in_quantity,
+		pd_in_amount,
+		pd_out_quantity,
+		pd_out_amount,
+		sale_out_quantity,
+		sale_out_amount,
+		sale_out_total,
+		sale_in_quantity,
+		sale_in_amount,
+		sale_in_total,
+		online_sale_out_quantity,
+		online_sale_out_amount,
+		online_sale_out_total,
+		online_sale_in_quantity,
+		online_sale_in_amount,
+		online_sale_in_total
+	)VALUES(
+		#{tenantId},
+		#{branchId},
+		#{goodsId},
+		#{createAt},
+		#{createBy},
+		#{lastUpdateAt},
+		#{lastUpdateBy},
+		#{isDeleted},
+		#{invoicingDate},
+		#{beginQuantity},
+		#{beginAmount},
+		#{endQuantity},
+		#{endAmount},
+		#{cgInQuantity},
+		#{cgInAmount},
+		#{cgOutQuantity},
+		#{cgOutAmount},
+		#{lyInQuantity},
+		#{lyInAmount},
+		#{lyOutQuantity},
+		#{lyOutAmount},
+		#{psInQuantity},
+		#{psInAmount},
+		#{psOutQuantity},
+		#{psOutAmount},
+		#{jgInQuantity},
+		#{jgInAmount},
+		#{jgOutQuantity},
+		#{jgOutAmount},
+		#{syInQuantity},
+		#{syInAmount},
+		#{syOutQuantity},
+		#{syOutAmount},
+		#{pdInQuantity},
+		#{pdInAmount},
+		#{pdOutQuantity},
+		#{pdOutAmount},
+		#{saleOutQuantity},
+		#{saleOutAmount},
+		#{saleOutTotal},
+		#{saleInQuantity},
+		#{saleInAmount},
+		#{saleInTotal},
+		#{onlineSaleOutQuantity},
+		#{onlineSaleOutAmount},
+		#{onlineSaleOutTotal},
+		#{onlineSaleInQuantity},
+		#{onlineSaleInAmount},
+		#{onlineSaleInTotal}
+	)
+    </insert>
+    <update id="update" parameterType="map">
+        UPDATE goods_invoicing
+        <set>
+			<if test="tenantId != null">
+				tenant_id = #{tenantId},
+			</if>
+			<if test="branchId != null">
+				branch_id= #{branchId},
+			</if>
+			<if test="goodsId != null">
+				goods_id= #{goodsId},
+			</if>
+			<if test="createAt != null">
+				create_at= #{createAt},
+			</if>
+			<if test="createBy != null">
+				create_by= #{createBy},
+			</if>
+			<if test="lastUpdateAt != null">
+				last_update_at= #{lastUpdateAt},
+			</if>
+			<if test="lastUpdateBy != null">
+				last_update_by= #{lastUpdateBy},
+			</if>
+			<if test="isDeleted != null">
+				is_deleted= #{isDeleted},
+			</if>
+			<if test="invoicingDate != null">
+				invoicing_date= #{invoicingDate},
+			</if>
+			<if test="beginQuantity != null">
+				begin_quantity= #{beginQuantity},
+			</if>
+			<if test="beginAmount != null">
+				begin_amount= #{beginAmount},
+			</if>
+			<if test="endQuantity != null">
+				end_quantity= #{endQuantity},
+			</if>
+			<if test="endAmount != null">
+				end_amount= #{endAmount},
+			</if>
+			<if test="cgInQuantity != null">
+				cg_in_quantity= #{cgInQuantity},
+			</if>
+			<if test="cgInAmount != null">
+				cg_in_amount= #{cgInAmount},
+			</if>
+			<if test="cgOutQuantity != null">
+				cg_out_quantity= #{cgOutQuantity},
+			</if>
+			<if test="cgOutAmount != null">
+				cg_out_amount= #{cgOutAmount},
+			</if>
+			<if test="lyInQuantity != null">
+				ly_in_quantity= #{lyInQuantity},
+			</if>
+			<if test="lyInAmount != null">
+				ly_in_amount= #{lyInAmount},
+			</if>
+			<if test="lyOutQuantity != null">
+				ly_out_quantity= #{lyOutQuantity},
+			</if>
+			<if test="lyOutAmount != null">
+				ly_out_amount= #{lyOutAmount},
+			</if>
+			<if test="psInQuantity != null">
+				ps_in_quantity= #{psInQuantity},
+			</if>
+			<if test="psInAmount != null">
+				ps_in_amount= #{psInAmount},
+			</if>
+			<if test="psOutQuantity != null">
+				ps_out_quantity= #{psOutQuantity},
+			</if>
+			<if test="psOutAmount != null">
+				ps_out_amount= #{psOutAmount},
+			</if>
+			<if test="jgInQuantity != null">
+				jg_in_quantity= #{jgInQuantity},
+			</if>
+			<if test="jgInAmount != null">
+				jg_in_amount= #{jgInAmount},
+			</if>
+			<if test="jgOutQuantity != null">
+				jg_out_quantity= #{jgOutQuantity},
+			</if>
+			<if test="jgOutAmount != null">
+				jg_out_amount= #{jgOutAmount},
+			</if>
+			<if test="syInQuantity != null">
+				sy_in_quantity= #{syInQuantity},
+			</if>
+			<if test="syInAmount != null">
+				sy_in_amount= #{syInAmount},
+			</if>
+			<if test="syOutQuantity != null">
+				sy_out_quantity= #{syOutQuantity},
+			</if>
+			<if test="syOutAmount != null">
+				sy_out_amount= #{syOutAmount},
+			</if>
+			<if test="pdInQuantity != null">
+				pd_in_quantity= #{pdInQuantity},
+			</if>
+			<if test="pdInAmount != null">
+				pd_in_amount= #{pdInAmount},
+			</if>
+			<if test="pdOutQuantity != null">
+				pd_out_quantity= #{pdOutQuantity},
+			</if>
+			<if test="pdOutAmount != null">
+				pd_out_amount= #{pdOutAmount},
+			</if>
+			<if test="saleOutQuantity != null">
+				sale_out_quantity= #{saleOutQuantity},
+			</if>
+			<if test="saleOutAmount != null">
+				sale_out_amount= #{saleOutAmount},
+			</if>
+			<if test="saleOutTotal != null">
+				sale_out_total= #{saleOutTotal},
+			</if>
+			<if test="saleInQuantity != null">
+				sale_in_quantity= #{saleInQuantity},
+			</if>
+			<if test="saleInAmount != null">
+				sale_in_amount= #{saleInAmount},
+			</if>
+			<if test="saleInTotal != null">
+				sale_in_total= #{saleInTotal},
+			</if>
+			<if test="onlineSaleOutQuantity != null">
+				online_sale_out_quantity= #{onlineSaleOutQuantity},
+			</if>
+			<if test="onlineSaleOutAmount != null">
+				online_sale_out_amount= #{onlineSaleOutAmount},
+			</if>
+			<if test="onlineSaleOutTotal != null">
+				online_sale_out_total= #{onlineSaleOutTotal},
+			</if>
+			<if test="onlineSaleInQuantity != null">
+				online_sale_in_quantity= #{onlineSaleInQuantity},
+			</if>
+			<if test="onlineSaleInAmount != null">
+				online_sale_in_amount= #{onlineSaleInAmount},
+			</if>
+			<if test="onlineSaleInTotal != null">
+				online_sale_in_total= #{onlineSaleInTotal},
+			</if>
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+	<select id="findGoodsInvocing" resultType="erp.chain.domain.supply.GoodsInvoicing">
+		SELECT * FROM goods_invoicing
+		WHERE tenant_id=${tenantId}
+		AND branch_id=${branchId}
+		AND is_deleted=0
+		AND goods_id=${goodsId}
+		AND invoicing_date='${invoicingDate}'
+		LIMIT 1
+	</select>
+	<select id="findLastGoodsInvocing" resultType="erp.chain.domain.supply.GoodsInvoicing">
+		SELECT * FROM goods_invoicing
+		WHERE tenant_id=${tenantId}
+		AND branch_id=${branchId}
+		AND is_deleted=0
+		AND goods_id=${goodsId}
+		ORDER BY invoicing_date DESC
+		LIMIT 1
+	</select>
+</mapper>

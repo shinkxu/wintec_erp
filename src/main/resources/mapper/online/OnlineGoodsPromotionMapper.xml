@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.OnlineGoodsPromotionMapper">
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineGoodsPromotion">
+        SELECT * FROM v_goods_promotion <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="findAll" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineGoodsPromotion">
+        SELECT * FROM v_goods_promotion <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+    
+    <select id="findAllOnlineGoodsPromotions" resultType="erp.chain.domain.online.OnlineGoodsPromotion">
+        SELECT
+        *
+        FROM v_goods_promotion
+        WHERE tenant_id = #{tenantId}
+        AND branch_id = #{branchId}
+        AND promotion_status = 0
+        AND scope IN (0, #{scope})
+        AND for_customer_type IN (0, #{forCustomerType})
+        AND (start_date &lt;= DATE(NOW()) AND end_date &gt;= DATE(NOW()))
+        AND (start_time &lt;= TIME(NOW()) AND end_time &gt;= TIME(NOW()))
+        AND (CASE DAYOFWEEK(NOW())
+        WHEN 2 THEN week LIKE '1,_,_,_,_,_,_'
+        WHEN 3 THEN week LIKE '_,1,_,_,_,_,_'
+        WHEN 4 THEN week LIKE '_,_,1,_,_,_,_'
+        WHEN 5 THEN week LIKE '_,_,_,1,_,_,_'
+        WHEN 6 THEN week LIKE '_,_,_,_,1,_,_'
+        WHEN 7 THEN week LIKE '_,_,_,_,_,1,_'
+        WHEN 1 THEN week LIKE '_,_,_,_,_,_,1' END)
+    </select>
+
+    <select id="findEffectiveDietPromotionTotalReduce" resultType="erp.chain.domain.DietPromotion">
+        SELECT
+        diet_promotion.*
+        FROM diet_promotion
+        INNER JOIN diet_promotion_branch_r ON diet_promotion_branch_r.diet_promotion_id = diet_promotion.id AND branch_id = #{branchId}
+        WHERE diet_promotion.tenant_id = ${tenantId}
+        AND diet_promotion.promotion_type = 9
+        AND diet_promotion.promotion_status = 0
+        AND diet_promotion.is_use = 1
+        AND diet_promotion.scope IN (0, #{scope})
+        AND diet_promotion.for_customer_type IN (0, #{forCustomerType})
+        AND diet_promotion.is_deleted = 0
+        AND (diet_promotion.start_date &lt;= DATE(NOW()) AND diet_promotion.end_date &gt;= DATE(NOW()))
+        AND (diet_promotion.start_time &lt;= TIME(NOW()) AND diet_promotion.end_time &gt;= TIME(NOW()))
+        AND (CASE DAYOFWEEK(NOW())
+        WHEN 1 THEN diet_promotion.apply_to_sun = 1
+        WHEN 2 THEN diet_promotion.apply_to_mon = 1
+        WHEN 3 THEN diet_promotion.apply_to_tue = 1
+        WHEN 4 THEN diet_promotion.apply_to_wed = 1
+        WHEN 5 THEN diet_promotion.apply_to_thu = 1
+        WHEN 6 THEN diet_promotion.apply_to_fri = 1
+        WHEN 7 THEN diet_promotion.apply_to_sat = 1 END)
+    </select>
+</mapper>

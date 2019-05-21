@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.o2o.AlipayMarketingCardTemplateMapper">
+    <insert id="insert" parameterType="erp.chain.domain.o2o.AlipayMarketingCardTemplate" useGeneratedKeys="true" keyProperty="id">
+        ${@erp.chain.utils.DatabaseUtils@generateInsertSql("erp.chain.domain.o2o.AlipayMarketingCardTemplate")}
+    </insert>
+
+    <update id="update" parameterType="erp.chain.domain.o2o.AlipayMarketingCardTemplate">
+        ${@erp.chain.utils.DatabaseUtils@generateUpdateSql("erp.chain.domain.o2o.AlipayMarketingCardTemplate")}
+    </update>
+
+    <select id="findAll" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.o2o.AlipayMarketingCardTemplate">
+        SELECT * FROM alipay_marketing_card_template <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.o2o.AlipayMarketingCardTemplate">
+        SELECT * FROM alipay_marketing_card_template <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+</mapper>

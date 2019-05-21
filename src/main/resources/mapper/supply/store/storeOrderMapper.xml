@@ -1,0 +1,1489 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="erp.chain.mapper.supply.store.StoreOrderMapper">
+
+    <!-- mysql 分页头 -->
+    <sql id="pagination_Head">
+        <![CDATA[
+        select row_.* from (
+        ]]>
+    </sql>
+    <!-- mysql 分页尾 -->
+    <sql id="pagination_Tail">
+        <![CDATA[
+        ) row_  LIMIT #{pager.firstPage},#{pager.lastPage}
+        ]]>
+    </sql>
+    <!-- count * from -->
+    <sql id="count_Start_Head">
+        <![CDATA[
+        select count(*) count from (
+        ]]>
+    </sql>
+    <sql id="count_Start_Tail">
+        <![CDATA[
+        ) t
+        ]]>
+    </sql>
+    <sql id="order_head">
+        <![CDATA[ SELECT order_.* from ( ]]>
+    </sql>
+    <sql id="order_by">
+        <![CDATA[ ) order_ ]]>
+        <if test="pager.orderProperty != null and pager.order != null">
+            ORDER BY ${pager.orderProperty} ${pager.order}
+        </if>
+    </sql>
+
+    <!--保存采购单-->
+    <insert id="saveCgOrder">
+        <selectKey keyProperty="id" resultType="java.math.BigInteger" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        INSERT INTO store_order (
+        tenant_id,branch_id,`code`,quantity,
+        amount,order_type,make_by,make_at,status,
+        is_deleted,create_at,create_by,last_update_by,last_update_at,storage_id,memo,supplier_id,supplier_name,is_update_price,settlement_date
+        ) VALUE (${tenantId},#{branchId},#{code},
+        #{quantity},#{amount},#{orderType},#{makeBy},#{makeAt},2,0,
+        #{makeAt},#{makeBy},#{makeBy},#{makeAt},0,#{memo},#{supplierId},#{supplierName},#{isUpdatePrice},#{settlementDate})
+    </insert>
+    <!--保存采购单-->
+    <insert id="saveCgOrderWS">
+        <selectKey keyProperty="id" resultType="java.math.BigInteger" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        INSERT INTO store_order (
+        tenant_id,branch_id,`code`,quantity,
+        amount,order_type,make_by,make_at,status,
+        is_deleted,create_at,create_by,last_update_by,last_update_at,storage_id,memo
+        ) VALUE (${tenantId},#{branchId},#{code},
+        #{quantity},#{amount},#{orderType},#{makeBy},#{makeAt},1,0,
+        #{makeAt},#{makeBy},#{makeBy},#{makeAt},0,#{memo})
+    </insert>
+    <!--保存采购单明细-->
+    <insert id="saveCgOrderDetail" useGeneratedKeys="true"
+    >
+        INSERT INTO store_order_detail (
+        tenant_id,branch_id,
+        purchase_amount,amount,quantity,
+        store_order_id,goods_id,is_deleted,create_at,create_by,
+        last_update_by,last_update_at,unit_type,unit_relation )
+        <if test="details.size() == 1">
+            value
+        </if>
+        <if test="details.size() > 1">
+            values
+        </if>
+        <foreach item="item" collection="details" separator=",">
+            (#{item.tenantId}, #{item.branchId}, #{item.purchaseAmount}, #{item.amount}, #{item.quantity}
+            , #{item.storeOrderId}, #{item.goodsId}, 0, #{item.createAt}, #{item.createBy}
+            , #{item.createBy}, #{item.createAt},#{item.unitType},#{item.unitRelation})
+        </foreach>
+    </insert>
+
+    <!--保存领用单-->
+    <insert id="saveLyOrder">
+        <selectKey keyProperty="id" resultType="java.math.BigInteger" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        INSERT INTO ly_store_order (
+        tenant_id,branch_id,`code`,quantity,incurred,
+        amount,type,make_by,make_at,status,
+        is_deleted,create_at,create_by,last_update_by,last_update_at,memo
+        ) VALUE (${tenantId},#{branchId},#{code},
+        #{quantity},#{incurred},#{amount},#{type},#{makeBy},#{makeAt},0,
+        0,#{makeAt},#{makeBy},#{makeBy},#{makeAt},#{memo})
+    </insert>
+    <!--保存领用单明细-->
+    <insert id="saveLyOrderDetail" useGeneratedKeys="true">
+        INSERT INTO ly_store_order_detail (
+        tenant_id,branch_id,
+        incurred,amount,quantity,
+        order_id,goods_id,is_deleted,create_at,create_by,
+        last_update_by,last_update_at,unit_type,unit_relation )
+        <if test="details.size() == 1">
+            value
+        </if>
+        <if test="details.size() > 1">
+            values
+        </if>
+        <foreach item="item" collection="details" separator=",">
+            (#{item.tenantId}, #{item.branchId}, #{item.incurred}, #{item.amount}, #{item.quantity}
+            , #{orderId}, #{item.goodsId}, 0, #{item.createAt}, #{item.createBy}
+            , #{item.createBy}, #{item.createAt}, #{item.unitType}, #{item.unitRelation})
+        </foreach>
+    </insert>
+
+    <!--保存损溢单-->
+    <insert id="saveSyOrder">
+        <selectKey keyProperty="id" resultType="java.math.BigInteger" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        INSERT INTO sy_store_order (
+        tenant_id,branch_id,`code`,quantity,incurred,
+        amount,make_by,make_at,status,
+        is_deleted,create_at,create_by,last_update_by,last_update_at,memo
+        ) VALUE (${tenantId},#{branchId},#{code},
+        #{quantity},#{incurred},#{amount},#{makeBy},#{makeAt},0,
+        0,#{makeAt},#{makeBy},#{makeBy},#{makeAt},#{memo})
+    </insert>
+    <!--保存损溢单单明细-->
+    <insert id="saveSyOrderDetail" useGeneratedKeys="true">
+        INSERT INTO sy_store_order_detail (
+        tenant_id,branch_id,
+        incurred,amount,quantity,
+        order_id,goods_id,is_deleted,create_at,create_by,
+        last_update_by,last_update_at,unit_type,unit_relation )
+        <if test="details.size() == 1">
+            value
+        </if>
+        <if test="details.size() > 1">
+            values
+        </if>
+        <foreach item="item" collection="details" separator=",">
+            (#{item.tenantId}, #{item.branchId}, #{item.incurred}, #{item.amount}, #{item.quantity}
+            , #{orderId}, #{item.goodsId}, 0, #{item.createAt}, #{item.createBy}
+            , #{item.createBy}, #{item.createAt},#{item.unitType},#{item.unitRelation})
+        </foreach>
+    </insert>
+
+    <!--保存盘点单-->
+    <insert id="savePdOrder" useGeneratedKeys="true" keyProperty="id">
+
+        INSERT INTO check_order (
+        tenant_id,branch_id,`code`,check_quantity,really_quantity,
+        check_amount,make_by,make_at,status,
+        is_deleted,create_at,create_by,last_update_by,last_update_at,memo
+        ) VALUE (${tenantId},#{branchId},#{code},
+        #{checkQuantity},#{reallyQuantity},#{checkAmount},#{makeBy},#{makeAt},2,
+        0,#{makeAt},#{makeBy},#{makeBy},#{makeAt},#{memo})
+    </insert>
+    <!--保存盘点单-->
+    <insert id="savePdOrderWS" useGeneratedKeys="true" keyProperty="id">
+
+        INSERT INTO check_order (
+        tenant_id,branch_id,`code`,check_quantity,really_quantity,
+        check_amount,make_by,make_at,status,
+        is_deleted,create_at,create_by,last_update_by,last_update_at,memo
+        ) VALUE (${tenantId},#{branchId},#{code},
+        #{checkQuantity},#{reallyQuantity},#{checkAmount},#{makeBy},#{makeAt},1,
+        0,#{makeAt},#{makeBy},#{makeBy},#{makeAt},#{memo})
+    </insert>
+
+    <!--保存盘点单明细-->
+    <insert id="savePdOrderDetail" useGeneratedKeys="true">
+        INSERT INTO check_order_detail (
+        tenant_id,branch_id,
+        quantity,purchase_price,check_amount,check_quantity,really_quantity,
+        check_order_id,goods_id,is_deleted,create_at,create_by,
+        last_update_by,last_update_at,unit_type,unit_relation )
+        <if test="details.size() == 1">
+            value
+        </if>
+        <if test="details.size() > 1">
+            values
+        </if>
+        <foreach item="item" collection="details" separator=",">
+            (#{item.tenantId}, #{item.branchId}, #{item.quantity}, #{item.purchasePrice}, #{item.checkAmount}
+            , #{item.checkQuantity}, #{item.reallyQuantity}, #{item.orderId}, #{item.goodsId}, 0, #{item.createAt},
+            #{item.createBy}
+            , #{item.createBy}, #{item.createAt}, #{item.unitType}, #{item.unitRelation})
+        </foreach>
+    </insert>
+
+    <!--分页查询机构采购单-->
+    <select id="queryCgOrderPager" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderModel">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="queryCgOrderColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <!--统计机构采购单-->
+    <select id="queryCgOrderCount" resultType="long" parameterType="erp.chain.model.supply.store.QueryCgOrderModel">
+        <include refid="count_Start_Head"/>
+        <include refid="queryCgOrderColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="queryCgOrderColumn">
+        <![CDATA[
+        SELECT
+          o.id order_id,
+          o.code,
+          o.order_type,
+          o.quantity,
+          o.amount,
+          o.status,
+          o.make_at,
+          o.audit_at,
+          o.version,
+          o.branch_id,
+          o.memo,
+          o.supplier_id,
+          IF(o.supplier_id = 0, "自购", o.supplier_name) supplier_name,
+          e.name emp_name,
+          e.id emp_id,
+          ae.id audit_emp_id,
+          ae.name audit_emp_name,
+          bh.name branch_name,
+          o.settlement_status,
+          o.settlement_date,
+          o.js_code,
+          o.is_update_price
+        FROM
+          store_order o
+          INNER JOIN employee e
+            ON o.make_by = e.id
+          LEFT JOIN employee ae
+            ON o.audit_by = ae.id
+          LEFT JOIN branch bh
+            ON o.branch_id = bh.id
+        WHERE 1 = 1
+        AND o.is_deleted = 0
+        AND o.tenant_id = ${tenantId}
+        AND o.branch_id = #{branchId}
+        ]]>
+
+        <if test="startDate != null">
+            <![CDATA[ AND o.make_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND o.make_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND o.code = #{code} ]]>
+        </if>
+        <if test="quantityMin != null">
+            <![CDATA[ AND o.quantity >= #{quantityMin} ]]>
+        </if>
+        <if test="quantityMax != null">
+            <![CDATA[ AND o.quantity <= #{quantityMax} ]]>
+        </if>
+        <if test="amountMin != null">
+            <![CDATA[ AND o.amount >= #{amountMin} ]]>
+        </if>
+        <if test="amountMax != null">
+            <![CDATA[ AND o.amount <= #{amountMax} ]]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND o.make_by = #{empId} ]]>
+        </if>
+        <if test="type != null">
+            <![CDATA[ AND o.order_type = #{type} ]]>
+        </if>
+        <if test="codeLike != null">
+            <![CDATA[ AND o.code LIKE #{codeLike} ]]>
+        </if>
+        <if test="supplierIds != null">
+            <![CDATA[ AND o.supplier_id = #{supplierIds} ]]>
+        </if>
+    </sql>
+
+    <!--分页查询机构盘点单-->
+    <select id="queryPdOrderPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="queryPdOrderColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <!--统计机构盘点单-->
+    <select id="queryPdOrderCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="queryPdOrderColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="queryPdOrderColumn">
+        <![CDATA[
+        SELECT
+          o.id order_id,
+          o.code,
+          o.check_quantity,
+          o.check_amount,
+          o.really_quantity,
+          o.make_at,
+          o.version,
+          o.branch_id,
+          o.memo,
+          e.name emp_name,
+          e.id emp_id,
+          o.status,
+          o.audit_at,
+          ae.id audit_emp_id,
+          ae.name audit_emp_name,
+          bh.name branch_name
+        FROM
+          check_order o
+          INNER JOIN employee e
+            ON o.make_by = e.id
+          LEFT JOIN employee ae
+            ON o.audit_by = ae.id
+          LEFT JOIN branch bh ON o.branch_id = bh.id
+        WHERE 1 = 1
+        AND o.is_deleted = 0
+        AND o.tenant_id = ${tenantId}
+        AND o.branch_id = #{branchId}
+        ]]>
+
+        <if test="startDate != null">
+            <![CDATA[ AND o.make_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND o.make_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND o.code = #{code} ]]>
+        </if>
+        <if test="checkQuantityMin != null">
+            <![CDATA[ AND o.quantity >= #{checkQuantityMin} ]]>
+        </if>
+        <if test="checkQuantityMax != null">
+            <![CDATA[ AND o.quantity <= #{checkQuantityMax} ]]>
+        </if>
+        <if test="checkAmountMin != null">
+            <![CDATA[ AND o.amount >= #{checkAmountMin} ]]>
+        </if>
+        <if test="checkAmountMax != null">
+            <![CDATA[ AND o.amount <= #{checkAmountMax} ]]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND o.make_by = #{empId} ]]>
+        </if>
+        <if test="codeLike != null">
+            <![CDATA[ AND o.code LIKE #{codeLike} ]]>
+        </if>
+    </sql>
+
+
+    <!--分页查询机构采购单明细-->
+    <select id="queryCgOrderDetailPager" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="queryCgOrderDetailColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <!--分页查询机构采购单明细-->
+    <select id="queryCgOrderDetailList" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="order_head"/>
+        <include refid="queryCgOrderDetailColumn"/>
+        <include refid="order_by"/>
+    </select>
+    <!--查询机构采购单合计-->
+    <select id="queryCgOrderDetailListTotal" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        SELECT SUM(orderDetail.purchase_quantity)purchase_quantity,SUM(orderDetail.total_amount)  total_amount  FROM(
+        <include refid="order_head"/>
+        <include refid="queryCgOrderDetailColumn"/>
+        <include refid="order_by"/>
+        ) orderDetail
+    </select>
+    <!--统计机构采购单明细-->
+    <select id="queryCgOrderDetailCount" resultType="long"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="count_Start_Head"/>
+        <include refid="queryCgOrderDetailColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="queryCgOrderDetailColumn">
+        <![CDATA[
+        SELECT
+          o.code,o.make_at,o.order_type,
+          e.name emp_name,e.id emp_id,
+          e.code emp_code,d.purchase_amount,
+          d.quantity purchase_quantity,d.amount total_amount,
+          g.id goods_id,g.goods_code,IF (
+                    g.standard_name IS NULL or g.standard_name="",
+                    g.goods_name,
+                    concat(g.goods_name,"(",g.standard_name,")")
+                    ) goods_name,g.bar_code,g.category_name,u.unit_code,u.unit_name, u1.unit_name  packing_unit_name, d.unit_type, d.unit_relation
+        FROM
+          store_order o
+          INNER JOIN employee e
+            ON o.make_by = e.id
+          INNER JOIN store_order_detail d
+            ON o.id = d.store_order_id
+            and d.is_deleted = 0
+          INNER JOIN goods g
+            ON d.goods_id = g.id
+          LEFT JOIN goods_unit u
+            ON  g.goods_unit_id = u.id
+          LEFT JOIN goods_unit u1
+            ON g.packing_unit_id = u1.id
+        WHERE 1 = 1
+        AND o.is_deleted = 0
+        AND o.tenant_id = ${tenantId}
+        AND o.branch_id = #{branchId}
+        ]]>
+
+        <if test="startDate != null">
+            <![CDATA[ AND o.make_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND o.make_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="quantityMin != null">
+            <![CDATA[ AND o.quantity >= #{quantityMin} ]]>
+        </if>
+        <if test="quantityMax != null">
+            <![CDATA[ AND o.quantity <= #{quantityMax} ]]>
+        </if>
+        <if test="amountMin != null">
+            <![CDATA[ AND o.amount >= #{amountMin} ]]>
+        </if>
+        <if test="amountMax != null">
+            <![CDATA[ AND o.amount <= #{amountMax} ]]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND o.make_by = #{empId} ]]>
+        </if>
+        <if test="type != null">
+            <![CDATA[ AND o.order_type = #{type} ]]>
+        </if>
+        <if test="goodsOrOrderOrEmpCodeLike != null">
+            <![CDATA[ AND (o.code LIKE #{goodsOrOrderOrEmpCodeLike} or e.code LIKE #{goodsOrOrderOrEmpCodeLike}
+                g.goods_code LIKE #{goodsOrOrderOrEmpCodeLike})
+        ]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND o.code = #{code} ]]>
+        </if>
+    </sql>
+    <!--分页查询机构盘点单明细-->
+    <select id="queryPdOrderDetailPager" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="queryPdOrderDetailColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <!--分页查询机构盘点单明细-->
+    <select id="queryPdOrderDetailList" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="order_head"/>
+        <include refid="queryPdOrderDetailColumn"/>
+        <include refid="order_by"/>
+    </select>
+    <!--统计机构采购单明细-->
+    <select id="queryPdOrderDetailCount" resultType="long"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="count_Start_Head"/>
+        <include refid="queryPdOrderDetailColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="queryPdOrderDetailColumn">
+        <![CDATA[
+        SELECT
+          o.code,o.make_at,e.name emp_name,e.id emp_id,
+          e.code emp_code,d.purchase_price,d.quantity,d.really_quantity,d.check_quantity,d.check_amount,
+          g.branch_id,g.id goods_id,g.goods_code,IF (
+                    g.standard_name IS NULL or g.standard_name="",
+                    g.goods_name,
+                    concat(g.goods_name,"(",g.standard_name,")")
+                    ) goods_name,g.bar_code,u.unit_code,u.unit_name,u1.unit_name packing_unit_name, c.cat_code,c.cat_name category_name, d.unit_type, d.unit_relation
+        FROM
+          check_order o
+          INNER JOIN employee e
+            ON o.make_by = e.id
+          INNER JOIN check_order_detail d
+            ON o.id = d.check_order_id
+            and d.is_deleted = 0
+          INNER JOIN goods g
+            ON d.goods_id = g.id
+          LEFT JOIN goods_unit u
+            ON g.goods_unit_id = u.id
+          LEFT JOIN goods_unit u1
+            ON g.packing_unit_id = u1.id
+          LEFT JOIN category c
+            ON g.category_id=c.id
+        WHERE 1 = 1
+        AND o.is_deleted = 0
+        AND o.tenant_id = ${tenantId}
+        AND o.branch_id = #{branchId}
+        ]]>
+
+        <if test="startDate != null">
+            <![CDATA[ AND o.make_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND o.make_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND o.code = #{code} ]]>
+        </if>
+        <if test="checkQuantityMin != null">
+            <![CDATA[ AND o.quantity >= #{checkQuantityMin} ]]>
+        </if>
+        <if test="checkQuantityMax != null">
+            <![CDATA[ AND o.quantity <= #{checkQuantityMax} ]]>
+        </if>
+        <if test="checkAmountMin != null">
+            <![CDATA[ AND o.amount >= #{checkAmountMin} ]]>
+        </if>
+        <if test="checkAmountMax != null">
+            <![CDATA[ AND o.amount <= #{checkAmountMax} ]]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND o.make_by = #{empId} ]]>
+        </if>
+        <if test="goodsOrOrderOrEmpCodeLike != null">
+            <![CDATA[ AND (o.code LIKE #{goodsOrOrderOrEmpCodeLike} or e.code LIKE #{goodsOrOrderOrEmpCodeLike}
+                g.goods_code LIKE #{goodsOrOrderOrEmpCodeLike})
+        ]]>
+        </if>
+    </sql>
+
+
+    <update id="auditOrder">
+        update
+        <if test="type == 1">
+            <![CDATA[ ly_store_order ]]>
+        </if>
+        <if test="type == 2">
+            <![CDATA[ sy_store_order ]]>
+        </if>
+        <if test="type == 3">
+            <![CDATA[ store_order ]]>
+        </if>
+        <if test="type == 4">
+            <![CDATA[ check_order ]]>
+        </if>
+        set status = 1 ,audit_by = #{empId},audit_at = now(),last_update_at = now(),last_update_by = #{empId},version =
+        next_version(version)
+        where tenant_id = ${tenantId} and branch_id = #{branchId} and code = #{code} and is_deleted = 0
+    </update>
+
+    <!--分页查询机构领用单-->
+    <select id="queryLyOrderPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="queryLyOrderColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <!--查询机构领用单-->
+    <select id="queryLyOrderList" resultType="mapUnderscoreToCamelCase">
+        <include refid="order_head"/>
+        <include refid="queryLyOrderColumn"/>
+        <include refid="order_by"/>
+    </select>
+    <!--统计机构领用单-->
+    <select id="queryLyOrderCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="queryLyOrderColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="queryLyOrderColumn">
+        <![CDATA[
+        SELECT
+          o.id order_id,
+          o.code,
+          o.quantity,
+          o.amount,
+          o.type,
+          o.status,
+          o.make_at,
+          o.audit_at,
+          o.version,
+          o.branch_id,
+          o.memo,
+          e.name emp_name,
+          e.id emp_id,
+          ae.id audit_emp_id,
+          ae.name audit_emp_name,
+          bh.name branch_name
+        FROM
+          ly_store_order o
+          INNER JOIN employee e
+            ON o.make_by = e.id
+          LEFT JOIN employee ae
+            ON o.audit_by = ae.id
+          LEFT JOIN branch bh ON o.branch_id = bh.id
+        WHERE 1 = 1
+        AND o.is_deleted = 0
+        AND o.tenant_id = ${tenantId}
+        AND o.branch_id = #{branchId}
+        ]]>
+
+        <if test="startDate != null">
+            <![CDATA[ AND o.make_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND o.make_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND o.code = #{code} ]]>
+        </if>
+        <if test="quantityMin != null">
+            <![CDATA[ AND o.quantity >= #{quantityMin} ]]>
+        </if>
+        <if test="quantityMax != null">
+            <![CDATA[ AND o.quantity <= #{quantityMax} ]]>
+        </if>
+        <if test="amountMin != null">
+            <![CDATA[ AND o.amount >= #{amountMin} ]]>
+        </if>
+        <if test="amountMax != null">
+            <![CDATA[ AND o.amount <= #{amountMax} ]]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND o.make_by = #{empId} ]]>
+        </if>
+        <if test="type != null">
+            <![CDATA[ AND o.type = #{type} ]]>
+        </if>
+        <if test="status != null">
+            <![CDATA[ AND o.status = #{status} ]]>
+        </if>
+        <if test="codeLike != null">
+            <![CDATA[ AND o.code LIKE #{codeLike} ]]>
+        </if>
+    </sql>
+
+    <!--分页查询机构领用单明细-->
+    <select id="queryLyOrderDetailPager" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="queryLyOrderDetailColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <!--查询机构领用单明细-->
+    <select id="queryLyOrderDetailList" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="order_head"/>
+        <include refid="queryLyOrderDetailColumn"/>
+        <include refid="order_by"/>
+    </select>
+    <!--查询机构领用单明细合计-->
+    <select id="queryLyOrderDetailListTotal" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        SELECT SUM(lyOrder.quantity) quantity,SUM(lyOrder.amount)  amount FROM(
+        <include refid="order_head"/>
+        <include refid="queryLyOrderDetailColumn"/>
+        <include refid="order_by"/>
+        )lyOrder
+    </select>
+    <!--统计机构领用单明细-->
+    <select id="queryLyOrderDetailCount" resultType="long"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="count_Start_Head"/>
+        <include refid="queryLyOrderDetailColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="queryLyOrderDetailColumn">
+        <![CDATA[
+        SELECT
+          o.code,o.make_at,o.type,o.status,
+          e.name emp_name,e.id emp_id,
+          e.code emp_code,d.amount,
+          d.quantity quantity,d.incurred,
+          g.branch_id,g.id goods_id,g.goods_code,IF (
+                    g.standard_name IS NULL or g.standard_name="",
+                    g.goods_name,
+                    concat(g.goods_name,"(",g.standard_name,")")
+                    ) goods_name,g.bar_code,g.category_name,u.unit_code,u.unit_name,u1.unit_name packing_unit_name, d.unit_type, d.unit_relation
+        FROM
+          ly_store_order o
+          INNER JOIN employee e
+            ON o.make_by = e.id
+          INNER JOIN ly_store_order_detail d
+            ON o.id = d.order_id
+            and d.is_deleted = 0
+          INNER JOIN goods g
+            ON d.goods_id = g.id
+          LEFT JOIN goods_unit u
+            ON g.goods_unit_id = u.id
+          LEFT JOIN goods_unit u1
+            ON g.packing_unit_id = u1.id
+        WHERE 1 = 1
+        AND o.is_deleted = 0
+        AND o.tenant_id = ${tenantId}
+        AND o.branch_id = #{branchId}
+        ]]>
+
+        <if test="startDate != null">
+            <![CDATA[ AND o.make_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND o.make_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="quantityMin != null">
+            <![CDATA[ AND o.quantity >= #{quantityMin} ]]>
+        </if>
+        <if test="quantityMax != null">
+            <![CDATA[ AND o.quantity <= #{quantityMax} ]]>
+        </if>
+        <if test="amountMin != null">
+            <![CDATA[ AND o.amount >= #{amountMin} ]]>
+        </if>
+        <if test="amountMax != null">
+            <![CDATA[ AND o.amount <= #{amountMax} ]]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND o.make_by = #{empId} ]]>
+        </if>
+        <if test="type != null">
+            <![CDATA[ AND o.type = #{type} ]]>
+        </if>
+        <if test="goodsOrOrderOrEmpCodeLike != null">
+            <![CDATA[ AND (o.code LIKE #{goodsOrOrderOrEmpCodeLike} or e.code LIKE #{goodsOrOrderOrEmpCodeLike}
+                g.goods_code LIKE #{goodsOrOrderOrEmpCodeLike})
+        ]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND o.code = #{code} ]]>
+        </if>
+    </sql>
+
+    <update id="updateCgOrder">
+        update store_order set last_update_at = now(),last_update_by = #{lastUpdateBy},version =
+        next_version(version)
+        ,quantity = #{quantity},amount = #{amount},memo = #{memo},supplier_id = #{supplierId}, supplier_name = #{supplierName}, is_update_price = #{isUpdatePrice}
+        where id = #{id}
+    </update>
+    <update id="updatePdOrder">
+        update check_order set last_update_at = now(),last_update_by = #{lastUpdateBy},version =
+        next_version(version)
+        ,check_quantity = #{checkQuantity},check_amount = #{checkAmount},really_quantity = #{reallyQuantity},memo = #{memo}
+        where id = #{id}
+    </update>
+    <update id="updateLyOrder">
+        update ly_store_order set last_update_at = now(),last_update_by = #{lastUpdateBy},version =
+        next_version(version)
+        ,quantity = #{quantity},incurred = #{incurred},amount = #{amount},memo = #{memo}
+        where id = #{id}
+    </update>
+    <update id="updateSyOrder">
+        update sy_store_order set last_update_at = now(),last_update_by = #{lastUpdateBy},version =
+        next_version(version)
+        ,quantity = #{quantity},incurred = #{incurred},amount = #{amount},memo = #{memo}
+        where id = #{id}
+    </update>
+    <update id="delOrderDetail">
+        update
+        <if test="type == 1">
+            <![CDATA[ ly_store_order_detail set is_deleted = 1 where order_id = #{orderId}]]>
+        </if>
+        <if test="type == 2">
+            <![CDATA[ sy_store_order_detail set is_deleted = 1 where order_id = #{orderId} ]]>
+        </if>
+        <if test="type == 3">
+            <![CDATA[ store_order_detail set is_deleted = 1 where store_order_id = #{orderId}]]>
+        </if>
+        <if test="type == 4">
+            <![CDATA[ check_order_detail set is_deleted = 1 where check_order_id = #{orderId}]]>
+        </if>
+
+    </update>
+
+    <update id="delOrder">
+        update
+        <if test="type == 1">
+            <![CDATA[ ly_store_order ]]>
+        </if>
+        <if test="type == 2">
+            <![CDATA[ sy_store_order ]]>
+        </if>
+        <if test="type == 3">
+            <![CDATA[ store_order ]]>
+        </if>
+        <if test="type == 4">
+            <![CDATA[ check_order ]]>
+        </if>
+        set last_update_at = now(),last_update_by = #{empId},code_index_var = id,
+        is_deleted = 1,version = next_version(version) where id = #{orderId}
+    </update>
+
+
+    <select id="querySyOrderPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="querySyOrderColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+
+    <!--统计机构损溢单-->
+    <select id="querySyOrderCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="querySyOrderColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="querySyOrderColumn">
+        <![CDATA[
+        SELECT
+          o.id order_id,
+          o.code,
+          o.quantity,
+          o.amount,
+          o.status,
+          o.make_at,
+          o.audit_at,
+          o.version,
+          o.branch_id,
+          o.memo,
+          e.name emp_name,
+          e.id emp_id,
+          ae.id audit_emp_id,
+          ae.name audit_emp_name,
+          bh.name branch_name
+        FROM
+          sy_store_order o
+          INNER JOIN employee e
+            ON o.make_by = e.id
+          LEFT JOIN employee ae
+            ON o.audit_by = ae.id
+          LEFT JOIN branch bh ON o.branch_id = bh.id
+        WHERE 1 = 1
+        AND o.is_deleted = 0
+        AND o.tenant_id = ${tenantId}
+        AND o.branch_id = #{branchId}
+        ]]>
+
+        <if test="startDate != null">
+            <![CDATA[ AND o.make_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND o.make_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND o.code = #{code} ]]>
+        </if>
+        <if test="quantityMin != null">
+            <![CDATA[ AND o.quantity >= #{quantityMin} ]]>
+        </if>
+        <if test="quantityMax != null">
+            <![CDATA[ AND o.quantity <= #{quantityMax} ]]>
+        </if>
+        <if test="amountMin != null">
+            <![CDATA[ AND o.amount >= #{amountMin} ]]>
+        </if>
+        <if test="amountMax != null">
+            <![CDATA[ AND o.amount <= #{amountMax} ]]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND o.make_by = #{empId} ]]>
+        </if>
+        <if test="status != null">
+            <![CDATA[ AND o.status = #{status} ]]>
+        </if>
+        <if test="codeLike != null">
+            <![CDATA[ AND o.code LIKE #{codeLike} ]]>
+        </if>
+    </sql>
+    <!--查询机构损溢单明细-->
+    <select id="querySyOrderDetailList" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="order_head"/>
+        <include refid="querySyOrderDetailColumn"/>
+        <include refid="order_by"/>
+    </select>
+
+    <!--查询机构损溢单明细合计-->
+    <select id="querySyOrderDetailListTotal" resultType="mapUnderscoreToCamelCase"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        SELECT SUM(syOrder.quantity) quantity, SUM(syOrder.amount) amount FROM(
+        <include refid="order_head"/>
+        <include refid="querySyOrderDetailColumn"/>
+        <include refid="order_by"/>
+        )syOrder
+    </select>
+    <!--统计机构损溢单明细-->
+    <select id="querySyOrderDetailCount" resultType="long"
+            parameterType="erp.chain.model.supply.store.QueryCgOrderDetailModel">
+        <include refid="count_Start_Head"/>
+        <include refid="querySyOrderDetailColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="querySyOrderDetailColumn">
+        <![CDATA[
+        SELECT
+          o.code,o.make_at,o.status,
+          e.name emp_name,e.id emp_id,
+          e.code emp_code,d.amount,
+          d.quantity quantity,d.incurred,
+          g.branch_id,g.id goods_id,g.goods_code,IF (
+                    g.standard_name IS NULL or g.standard_name="",
+                    g.goods_name,
+                    concat(g.goods_name,"(",g.standard_name,")")
+                    ) goods_name,g.bar_code,u.unit_code,u.unit_name,c.cat_code,c.cat_name category_name, u1.unit_name  packing_unit_name, d.unit_type, d.unit_relation
+        FROM
+          sy_store_order o
+          INNER JOIN employee e
+            ON o.make_by = e.id
+          INNER JOIN sy_store_order_detail d
+            ON o.id = d.order_id
+            and d.is_deleted = 0
+          INNER JOIN goods g
+            ON d.goods_id = g.id
+          LEFT JOIN goods_unit u
+            ON g.goods_unit_id = u.id
+          LEFT JOIN goods_unit u1
+            ON g.packing_unit_id = u1.id
+          LEFT JOIN category c
+            ON g.category_id=c.id
+        WHERE 1 = 1
+        AND o.is_deleted = 0
+        AND o.tenant_id = ${tenantId}
+        AND o.branch_id = #{branchId}
+        ]]>
+
+        <if test="startDate != null">
+            <![CDATA[ AND o.make_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND o.make_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="quantityMin != null">
+            <![CDATA[ AND o.quantity >= #{quantityMin} ]]>
+        </if>
+        <if test="quantityMax != null">
+            <![CDATA[ AND o.quantity <= #{quantityMax} ]]>
+        </if>
+        <if test="amountMin != null">
+            <![CDATA[ AND o.amount >= #{amountMin} ]]>
+        </if>
+        <if test="amountMax != null">
+            <![CDATA[ AND o.amount <= #{amountMax} ]]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND o.make_by = #{empId} ]]>
+        </if>
+        <if test="goodsOrOrderOrEmpCodeLike != null">
+            <![CDATA[ AND (o.code LIKE #{goodsOrOrderOrEmpCodeLike} or e.code LIKE #{goodsOrOrderOrEmpCodeLike}
+                g.goods_code LIKE #{goodsOrOrderOrEmpCodeLike})
+        ]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND o.code = #{code} ]]>
+        </if>
+    </sql>
+
+
+    <!--分页查询库存单据-->
+    <select id="queryOrderPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="column_queryOrderPager"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+
+    <!--分页查询库存单据-->
+    <select id="queryOrderCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="column_queryOrderPager"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+
+    <!--分页查询库存单据footer-->
+    <select id="queryOrderPagerSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="sum_queryOrderPagerHead"/>
+        <include refid="column_queryOrderPager"/>
+        <include refid="sum_queryOrderPagerFoot"/>
+    </select>
+
+    <sql id="sum_queryOrderPagerHead">
+        SELECT SUM(IF(t.order_type = 5, 0, t.quantity)) quantity, SUM(IF(t.order_type = 5, 0, t.amount)) amount FROM (
+    </sql>
+    <sql id="sum_queryOrderPagerFoot">
+        )t
+    </sql>
+    <sql id="column_queryOrderPager">
+        SELECT o.*,e.name emp_name,ae.name audit_emp_name,b.name
+        FROM (
+        SELECT
+        cg.id order_id,branch_id,cg.code,cg.order_type,if(cg.status=2,0,1) status ,cg.make_by,cg.make_at,
+        cg.audit_at,cg.audit_by,IF(cg.order_type = 2, -cg.quantity,cg.quantity) quantity,IF(cg.order_type = 2, -cg.amount,cg.amount) amount,
+        cg.version,cg.supplier_id,cg.supplier_name
+        FROM store_order cg WHERE is_deleted = 0 AND tenant_id = ${tenantId}
+        <if test="supplierIds != null and supplierIds != ''">
+            AND cg.supplier_id IN (${supplierIds})
+        </if>
+        UNION ALL
+        SELECT
+        ly.id order_id, branch_id,ly.code,IF(ly.type = 1, 3, 4) order_type,
+        ly.status,ly.make_by,ly.make_at,ly.audit_at,ly.audit_by,
+        IF(ly.type = 2, -ly.quantity, ly.quantity) quantity,
+        IF(ly.type = 2, -ly.amount, ly.amount) amount,ly.version,NULL supplier_id,NULL supplier_name
+        FROM ly_store_order ly WHERE is_deleted = 0 AND tenant_id = ${tenantId}
+        UNION ALL
+        SELECT
+        jg.id order_id,branch_id,jg.code,5 order_type,IF(jg.status=1,0,1)status ,jg.make_emp_id
+        make_by,jg.make_at,jg.audit_at,
+        jg.audit_emp_id audit_by,jg.quantity, NULL amount,jg.version,NULL supplier_id,NULL supplier_name
+        FROM goods_produce_order jg
+        WHERE is_deleted = 0 AND tenant_id = ${tenantId}
+        UNION ALL
+        SELECT
+        sy.id order_id,branch_id,sy.code,6 order_type,sy.status,sy.make_by,
+        sy.make_at,sy.audit_at,sy.audit_by,sy.quantity,sy.amount,sy.version,NULL supplier_id,NULL supplier_name
+        FROM sy_store_order sy
+        WHERE is_deleted = 0 AND tenant_id = ${tenantId}
+        UNION ALL
+        SELECT
+        pd.id order_id,branch_id,pd.code,7 order_type,if(pd.status=2,0,1),
+        pd.make_by,pd.make_at,pd.audit_at,pd.audit_by,
+        pd.check_quantity quantity,pd.check_amount amount,pd.version,NULL supplier_id,NULL supplier_name
+        FROM check_order pd
+        WHERE is_deleted = 0 AND tenant_id = ${tenantId}
+        UNION ALL
+        SELECT
+        ps.id order_id,branch_id,ps.code,IF(ps.type = 1, 8, 9) order_type,
+        ps.status,ps.make_by,ps.make_at,ps.audit_at,
+        ps.audit_by,IF(ps.type = 2, -ps.quantity, ps.quantity) quantity,
+        IF(ps.type = 2, -ps.amount ,ps.amount) amount,ps.version,NULL supplier_id,NULL supplier_name
+        FROM ps_store_order ps
+        WHERE is_deleted = 0 AND tenant_id = ${tenantId}) o
+        INNER JOIN branch b ON b.id = o.branch_id
+        INNER JOIN employee e ON o.make_by = e.id
+        LEFT JOIN employee ae ON o.audit_by = ae.id
+        WHERE 1=1
+        <if test="branchId != null">
+            AND o.branch_id = #{branchId}
+        </if>
+        <if test="type != null">
+            AND o.order_type = #{type}
+        </if>
+        <if test="status != null">
+            AND o.status = #{status}
+        </if>
+        <if test="opEmpId != null">
+            AND (o.make_by = #{opEmpId} or o.audit_by = #{opEmpId})
+        </if>
+        <if test="makeEmpId != null">
+            AND o.make_by = #{makeEmpId}
+        </if>
+        <if test="auditEmpId != null">
+            AND o.audit_by = #{auditEmpId}
+        </if>
+        <if test="codeLike != null">
+            AND o.code like #{codeLike}
+        </if>
+        <if test="startDate != null">
+            <![CDATA[ AND o.make_at >= '${startDate} 00:00:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND o.make_at <= '${endDate} 23:59:59' ]]>
+        </if>
+        ORDER BY o.make_at DESC
+    </sql>
+    <update id="updateOrderWS" parameterType="map">
+        UPDATE
+        <if test="type!=null and type==1">
+            store_order
+        </if>
+        <if test="type!=null and type==2">
+            check_order
+        </if>
+        SET audit_by=#{auditBy},audit_name=#{auditName},audit_at=NOW()
+        WHERE tenant_id=${tenantId} and branch_id=#{branchId} and code=#{code}
+    </update>
+
+    <!--分页查询单品库存汇总-->
+    <sql id="queryStoreSingleSumReportHead">
+        SELECT SUM(t.quantity) quantity,SUM(t.amount) amount FROM (
+    </sql>
+    <sql id="queryStoreSingleReportHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="queryStoreSingleReportMain">
+        SELECT o.branch_id, o.goods_code, IF (o.standard_name IS NULL or o.standard_name="",o.goods_name,concat(o.goods_name,"(",o.standard_name,")")) goods_name,o.bar_code,
+        c.cat_name, gu.unit_name, SUM(o.quantity) quantity, o.amount, o.goods_id, o.order_type FROM (
+        <if test="occurType == 1">
+            SELECT DISTINCT(cg.id) order_id, cg.branch_id, cg.code,if(cg.status=2,0,1) status ,cg.make_at,IF(cgd.unit_type = 2, cgd.quantity * g.unit_relation,cgd.quantity) quantity,
+            cgd.amount,cgd.goods_id, cg.order_type, g.category_id, g.goods_unit_id, g.standard_name, g.goods_name,g.goods_code,g.bar_code FROM store_order cg
+            INNER JOIN store_order_detail cgd ON cg.id = cgd.store_order_id LEFT JOIN goods g ON cgd.goods_id = g.id
+            WHERE cg.is_deleted = 0 AND cgd.is_deleted = 0 AND cg.order_type = 1 AND cg.tenant_id = ${tenantId}
+            <if test="status != null and status != ''">
+                <if test="status == 0">
+                    AND cg.status = 2
+                </if>
+                <if test="status == 1">
+                    AND cg.status = ${status}
+                </if>
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND cg.make_at &gt;= '${startDate} 00:00:00'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND cg.make_at &lt;= '${endDate} 23:59:59'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND cg.branch_id IN (${branchId})
+            </if>
+            <if test="supplierId != null and supplierId != ''">
+                AND cg.supplier_id IN (${supplierId})
+            </if>
+        </if>
+        <if test="occurType == 2">
+            SELECT DISTINCT(cg.id) order_id, cg.branch_id, cg.code,if(cg.status=2,0,1) status ,cg.make_at,
+            IF(cgd.unit_type = 2, cgd.quantity * g.unit_relation,cgd.quantity) quantity,
+            cgd.amount,cgd.goods_id, cg.order_type, g.category_id, g.goods_unit_id, g.standard_name, g.goods_name,g.goods_code,g.bar_code FROM store_order cg
+            INNER JOIN store_order_detail cgd ON cg.id = cgd.store_order_id LEFT JOIN goods g ON cgd.goods_id = g.id
+            WHERE cg.is_deleted = 0 AND cgd.is_deleted = 0 AND cg.order_type = 2 AND cg.tenant_id = ${tenantId}
+            <if test="status != null and status != ''">
+                <if test="status == 0">
+                    AND cg.status = 2
+                </if>
+                <if test="status == 1">
+                    AND cg.status = ${status}
+                </if>
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND cg.make_at &gt;= '${startDate} 00:00:00'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND cg.make_at &lt;= '${endDate} 23:59:59'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND cg.branch_id IN (${branchId})
+            </if>
+            <if test="supplierId != null and supplierId != ''">
+                AND cg.supplier_id IN (${supplierId})
+            </if>
+        </if>
+        <if test="occurType == 3">
+            SELECT DISTINCT(ly.id) order_id, ly.branch_id, ly.code, ly.status,ly.make_at,IF(lyd.unit_type = 2,SUM(lyd.quantity) * g.unit_relation, SUM(lyd.quantity)) quantity,SUM(lyd.amount) amount,lyd.goods_id,ly.type order_type, lyd.unit_type,
+            g.category_id, g.goods_unit_id, g.standard_name, g.goods_name,g.goods_code,g.bar_code
+            FROM ly_store_order ly
+            INNER JOIN ly_store_order_detail lyd ON ly.id = lyd.order_id
+            LEFT JOIN goods g ON lyd.goods_id = g.id
+            WHERE ly.is_deleted = 0 AND lyd.is_deleted = 0 AND ly.type = 1 AND ly.tenant_id = ${tenantId}
+            <if test="status != null and status != ''">
+                AND ly.status = ${status}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND ly.make_at &gt;= '${startDate} 00:00:00'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND ly.make_at &lt;= '${endDate} 23:59:59'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND ly.branch_id IN (${branchId})
+            </if>
+            GROUP BY lyd.goods_id
+        </if>
+        <if test="occurType == 4">
+            SELECT DISTINCT(ly.id) order_id, ly.branch_id, ly.code, ly.status,ly.make_at,IF(lyd.unit_type = 2,SUM(lyd.quantity) * g.unit_relation, SUM(lyd.quantity)) quantity,SUM(lyd.amount) amount,lyd.goods_id,ly.type order_type, lyd.unit_type,
+            g.category_id, g.goods_unit_id, g.standard_name, g.goods_name,g.goods_code,g.bar_code
+            FROM ly_store_order ly
+            INNER JOIN ly_store_order_detail lyd ON ly.id = lyd.order_id
+            LEFT JOIN goods g ON lyd.goods_id = g.id
+            WHERE ly.is_deleted = 0 AND lyd.is_deleted = 0 AND ly.type = 2 AND ly.tenant_id = ${tenantId}
+            <if test="status != null and status != ''">
+                AND ly.status = ${status}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND ly.make_at &gt;= '${startDate} 00:00:00'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND ly.make_at &lt;= '${endDate} 23:59:59'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND ly.branch_id IN (${branchId})
+            </if>
+            GROUP BY lyd.goods_id
+        </if>
+        <if test="occurType == 5">
+            SELECT DISTINCT(sy.id) order_id, sy.branch_id, sy.code,sy.status,sy.make_at,IF(syd.unit_type =2,SUM(syd.quantity) * g.unit_relation, SUM(syd.quantity)) quantity,SUM(syd.amount) amount, syd.goods_id, 5 order_type, syd.unit_type,
+            g.category_id, g.goods_unit_id, g.standard_name, g.goods_name,g.goods_code,g.bar_code
+            FROM sy_store_order sy
+            INNER JOIN sy_store_order_detail syd ON sy.id = syd.order_id
+            LEFT JOIN goods g ON syd.goods_id = g.id
+            WHERE sy.is_deleted = 0 AND syd.is_deleted = 0 AND sy.tenant_id = ${tenantId}
+            <if test="status != null and status != ''">
+                AND sy.status = ${status}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND sy.make_at &gt;= '${startDate} 00:00:00'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND sy.make_at &lt;= '${endDate} 23:59:59'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND sy.branch_id IN (${branchId})
+            </if>
+            GROUP BY syd.goods_id
+        </if>
+        <if test="occurType == 6">
+            SELECT DISTINCT(pd.id) order_id, pd.branch_id, pd.code,if(pd.status=2,0,1) status, pd.make_at, IF(pdd.unit_type = 2,SUM(pdd.check_quantity) * g.unit_relation, SUM(pdd.check_quantity)) quantity, SUM(pdd.check_amount) amount,pdd.goods_id, 6 order_type,pdd.unit_type,
+            g.category_id, g.goods_unit_id, g.standard_name, g.goods_name,g.goods_code,g.bar_code
+            FROM check_order pd
+            INNER JOIN check_order_detail pdd ON pd.id = pdd.check_order_id
+            LEFT JOIN goods g ON pdd.goods_id = g.id
+            WHERE pd.is_deleted = 0 AND pdd.is_deleted = 0 AND pd.tenant_id = ${tenantId}
+            <if test="status != null and status != ''">
+                <if test="status == 0">
+                    AND pd.status = 2
+                </if>
+                <if test="status == 1">
+                    AND pd.status = ${status}
+                </if>
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND pd.make_at &gt;= '${startDate} 00:00:00'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND pd.make_at &lt;= '${endDate} 23:59:59'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND pd.branch_id = ${branchId}
+            </if>
+            GROUP BY pdd.goods_id
+        </if>
+        <if test="occurType == 7">
+            SELECT DISTINCT(ps.id) order_id, ps.branch_id, ps.code, ps.status,ps.make_at,IF(psd.unit_type = 2,SUM(psd.quantity) * g.unit_relation, SUM(psd.quantity)) quantity,SUM(psd.amount) amount, psd.goods_id,ps.type order_type,psd.unit_type,
+            g.category_id, g.goods_unit_id, g.standard_name, g.goods_name,g.goods_code,g.bar_code
+            FROM ps_store_order ps
+            INNER JOIN ps_store_order_detail psd ON ps.id = psd.order_id
+            LEFT JOIN goods g ON psd.goods_id = g.id
+            WHERE ps.is_deleted = 0 AND psd.is_deleted = 0 AND ps.type=1 AND ps.tenant_id = ${tenantId}
+            <if test="status != null and status != ''">
+                AND ps.status = ${status}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND ps.make_at &gt;= '${startDate} 00:00:00'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND ps.make_at &lt;= '${endDate} 23:59:59'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND ps.branch_id IN (${branchId})
+            </if>
+            GROUP BY psd.goods_id
+        </if>
+        <if test="occurType == 9">
+            SELECT DISTINCT(ps.id) order_id, ps.branch_id, ps.code, ps.status,ps.make_at,IF(psd.unit_type = 2,-SUM(psd.quantity) * g.unit_relation, -SUM(psd.quantity)) quantity,-SUM(psd.amount) amount, psd.goods_id,ps.type order_type,psd.unit_type,
+            g.category_id, g.goods_unit_id, g.standard_name, g.goods_name,g.goods_code,g.bar_code
+            FROM ps_store_order ps
+            INNER JOIN ps_store_order_detail psd ON ps.id = psd.order_id
+            LEFT JOIN goods g ON psd.goods_id = g.id
+            WHERE ps.is_deleted = 0 AND psd.is_deleted = 0 AND ps.type=2 AND ps.tenant_id = ${tenantId}
+            <if test="status != null and status != ''">
+                AND ps.status = ${status}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND ps.make_at &gt;= '${startDate} 00:00:00'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND ps.make_at &lt;= '${endDate} 23:59:59'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND ps.branch_id IN (${branchId})
+            </if>
+            GROUP BY psd.goods_id
+        </if>
+        <if test="occurType == 8">
+            SELECT DISTINCT(yh.id) order_id, yh.branch_id, yh.require_goods_order_no code,yh.status,yh.make_at,IF(yhd.unit_type = 2,SUM(yhd.amount) * g.unit_relation, SUM(yhd.amount)) quantity,SUM(yhd.subtotal) amount, yhd.goods_id, 1 order_type,yhd.unit_type,
+            g.category_id, g.goods_unit_id, g.standard_name, g.goods_name,g.goods_code,g.bar_code
+            FROM require_goods_order yh
+            INNER JOIN require_goods_order_detail yhd ON yh.id = yhd.require_goods_order_id
+            LEFT JOIN goods g ON yhd.goods_id = g.id
+            WHERE yh.is_deleted = 0 AND yhd.is_deleted = 0 AND yh.tenant_id = ${tenantId}
+            <if test="status == 1">
+                AND yh.status IN (1,2)
+            </if>
+            <if test="status == 0">
+                AND  yh.status IN (0,5)
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND yh.make_at &gt;= '${startDate} 00:00:00'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND yh.make_at &lt;= '${endDate} 23:59:59'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND yh.branch_id IN (${branchId})
+            </if>
+            GROUP BY yhd.goods_id
+        </if>
+        ) o
+        INNER JOIN category c ON o.category_id = c.id
+        INNER JOIN goods_unit gu ON o.goods_unit_id = gu.id
+        WHERE 1=1
+        GROUP BY o.goods_id
+        ORDER BY o.make_at DESC
+    </sql>
+    <sql id="queryStoreSingleReportFoot">
+        ) t
+    </sql>
+    <sql id="pageFoot">
+        LIMIT ${offset},${rows}
+    </sql>
+    <select id="queryStoreSingleReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="queryStoreSingleReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="queryStoreSingleReportCount" resultType="java.lang.Long">
+        <include refid="queryStoreSingleReportHead"/>
+        <include refid="queryStoreSingleReportMain"/>
+        <include refid="queryStoreSingleReportFoot"/>
+    </select>
+    <select id="queryStoreSingleSumReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="queryStoreSingleSumReportHead"/>
+        <include refid="queryStoreSingleReportMain"/>
+        <include refid="queryStoreSingleReportFoot"/>
+    </select>
+
+    <!--供应商结算单-->
+    <sql id="supplierSettlementsHead">
+        SELECT COUNT(1) FROM (
+    </sql>
+    <sql id="supplierSettlementsMain">
+        SELECT s.id,s.js_code, s.audit_status, s.settlement_status, IFNULL(s.settlement_amount, 0) settlement_amount, e.name make_by, e1.name audit_by, b.name branch_name,
+        IF(s.supplier_id = 0, '自购', su.supplier_name) supplier_name, s.create_at, s.audit_at, s.branch_id
+        FROM js_order s
+        LEFT JOIN employee e ON s.create_by = e.id
+        LEFT JOIN employee e1 ON s.audit_by = e1.id
+        LEFT JOIN branch b ON s.branch_id = b.id
+        LEFT JOIN supplier su ON s.supplier_id = su.id
+        WHERE s.is_deleted = 0 AND s.branch_id = ${branchId}
+        <if test="startDate != null and startDate != ''">
+            AND s.create_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.create_at &lt;= '${endDate} 23:59:59'
+        </if>
+        <if test="code != null and code != ''">
+            AND s.js_code LIKE '%${code}%'
+        </if>
+        <if test="status != null and status != ''">
+            AND s.audit_status = ${status}
+        </if>
+        <if test="settlementStatus != null and settlementStatus != ''">
+            AND s.settlement_status = ${settlementStatus}
+        </if>
+        <if test="makeBy != null and makeBy != ''">
+            AND s.create_by = ${makeBy}
+        </if>
+        <if test="supplierIds != null and supplierIds != ''">
+            AND s.supplier_id IN (${supplierIds})
+        </if>
+    </sql>
+    <sql id="supplierSettlementsFoot">
+        ) t
+    </sql>
+    <select id="querySupplierSettlements" resultType="mapUnderscoreToCamelCase">
+        <include refid="supplierSettlementsMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="querySupplierSettlementsSum" resultType="java.lang.Long">
+        <include refid="supplierSettlementsHead"/>
+        <include refid="supplierSettlementsMain"/>
+        <include refid="supplierSettlementsFoot"/>
+    </select>
+    <!--新增结算单-->
+    <insert id="addJsOrder" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO js_order (id, js_code, tenant_id, branch_id, supplier_id, audit_status, settlement_amount, create_at, create_by, audit_at, audit_by,
+        is_deleted, memo, last_update_at, last_update_by)
+        VALUES (#{id, jdbcType=BIGINT}, #{jsCode, jdbcType=VARCHAR}, #{tenantId, jdbcType=BIGINT}, #{branchId, jdbcType=BIGINT}, #{supplierId, jdbcType=BIGINT},
+        #{auditStatus, jdbcType=TINYINT}, #{settlementAmount, jdbcType=DECIMAL}, #{createAt, jdbcType=TIMESTAMP},
+        #{createBy, jdbcType=BIGINT}, #{auditAt, jdbcType=TIMESTAMP}, #{auditBy, jdbcType=VARCHAR}, #{isDeleted, jdbcType=BIT}, #{memo, jdbcType=VARCHAR},
+        #{lastUpdateAt, jdbcType=TIMESTAMP}, #{lastUpdateBy, jdbcType=BIGINT})
+    </insert>
+    <update id="updateJsOrder" parameterType="map">
+        UPDATE js_order
+        <set>
+            <if test="settlementStatus != null">
+                settlement_status = #{settlementStatus, jdbcType=TINYINT},
+            </if>
+            <if test="settlementAmount != null">
+                settlement_amount = #{settlementAmount, jdbcType=DECIMAL},
+            </if>
+            <if test="auditStatus != null">
+                audit_status = #{auditStatus, jdbcType=TINYINT},
+            </if>
+            <if test="auditAt != null">
+                audit_at = #{auditAt, jdbcType=TIMESTAMP},
+            </if>
+            <if test="auditBy != null">
+                audit_by = #{auditBy, jdbcType=BIGINT},
+            </if>
+            <if test="lastUpdateAt != null">
+                last_update_at = #{lastUpdateAt, jdbcType=TIMESTAMP},
+            </if>
+            <if test="lastUpdateBy != null">
+                last_update_by = #{lastUpdateBy, jdbcType=BIGINT},
+            </if>
+            <if test="isDeleted != null">
+                is_deleted = #{isDeleted ,jdbcType=BIT},
+            </if>
+            <if test="memo != null">
+                memo = #{memo, jdbcType=VARCHAR},
+            </if>
+        </set>
+        WHERE id = #{id, jdbcType=BIGINT}
+    </update>
+    <select id="queryJsOrderById" resultType="erp.chain.domain.supply.store.JsOrder">
+        SELECT * FROM js_order WHERE id = ${id} AND is_deleted = 0
+    </select>
+    <select id="queryCgByJsOrder" resultType="mapUnderscoreToCamelCase">
+        SELECT * FROM store_order WHERE js_code = '${jsCode}' AND is_deleted = 0 AND tenant_id = ${tenantId} AND branch_id = ${branchId}
+    </select>
+    <update id="updateCgToJs">
+        UPDATE store_order SET settlement_status = 1,js_code = '${jsCode}',settlement_date = now() WHERE id IN (${ids})
+    </update>
+    <update id="clearCgToJs">
+        UPDATE store_order SET settlement_status = 0,js_code = NULL, settlement_date = NULL WHERE id IN (${ids})
+    </update>
+    <update id="auditJsOrder">
+        UPDATE js_order SET audit_status = 1, audit_at = now(),audit_by = ${auditBy} WHERE id = ${id}
+    </update>
+    <select id="queryCgOrderToJs" resultType="mapUnderscoreToCamelCase">
+        SELECT so.id, so.code orderCode, so.order_type, so.quantity, so.amount, so.settlement_status, so.make_at, IF(so.supplier_id = 0, '自购', s.supplier_name) supplier_name,
+        so.status FROM store_order so
+        LEFT JOIN supplier s ON so.supplier_id = s.id WHERE so.is_deleted = 0 AND so.tenant_id = ${tenantId} AND so.branch_id = ${branchId}
+        AND settlement_status = 0 AND so.status = 1
+        <if test="supplierId == 0">
+            AND (so.supplier_id = 0 OR so.supplier_id IS NULL)
+        </if>
+        <if test="supplierId != 0">
+            AND so.supplier_id = ${supplierId}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND so.make_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND so.make_at &lt;= '${endDate}'
+        </if>
+    </select>
+    <select id="queryJsOrderByCode" resultType="mapUnderscoreToCamelCase">
+        SELECT s.id,s.js_code, s.audit_status, s.settlement_status, IFNULL(s.settlement_amount, 0) settlement_amount, e.name make_by, e1.name audit_by, b.name branch_name,
+        IF(s.supplier_id = 0, '自购', su.supplier_name) supplier_name, s.create_at, s.audit_at, s.branch_id, s.memo, s.supplier_id
+        FROM js_order s
+        LEFT JOIN employee e ON s.create_by = e.id
+        LEFT JOIN employee e1 ON s.audit_by = e1.id
+        LEFT JOIN branch b ON s.branch_id = b.id
+        LEFT JOIN supplier su ON s.supplier_id = su.id
+        WHERE s.js_code = '${jsCode}' AND s.tenant_id = ${tenantId} AND s.is_deleted = 0
+    </select>
+    <select id="queryCgOrderByJsCode" resultType="mapUnderscoreToCamelCase">
+        SELECT so.id, so.code orderCode, so.order_type, so.quantity, so.amount, so.settlement_status, so.make_at, IF(so.supplier_id = 0, '自购', s.supplier_name) supplier_name,
+        so.status FROM store_order so
+        LEFT JOIN supplier s ON so.supplier_id = s.id WHERE so.is_deleted = 0 AND so.tenant_id = ${tenantId} AND so.branch_id = ${branchId}
+        AND js_code = '${jsCode}'
+    </select>
+    <!--查询结算单合计-->
+    <select id="queryCgOrderDetailByJsCode" resultType="mapUnderscoreToCamelCase">
+SELECT SUM(IF(jsCodeDetail.order_type=1,jsCodeDetail.amount,-jsCodeDetail.amount)) amount FROM(
+        SELECT so.id, so.code orderCode, so.order_type, so.quantity, so.amount, so.settlement_status, so.make_at, IF(so.supplier_id = 0, '自购', s.supplier_name) supplier_name,
+        so.status FROM store_order so
+        LEFT JOIN supplier s ON so.supplier_id = s.id WHERE so.is_deleted = 0 AND so.tenant_id = ${tenantId} AND so.branch_id = ${branchId}
+        AND js_code = '${jsCode}'
+        )jsCodeDetail
+    </select>
+
+    <update id="deleteJsOrder">
+        UPDATE js_order SET is_deleted = 1, last_update_by = ${userId}, last_update_at = now() WHERE id = ${id}
+    </update>
+</mapper>

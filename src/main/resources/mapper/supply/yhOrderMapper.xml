@@ -1,0 +1,662 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="erp.chain.mapper.supply.YhOrderMapper">
+
+    <!-- mysql 分页头 -->
+    <sql id="pagination_Head">
+        <![CDATA[
+        select row_.* from (
+        ]]>
+    </sql>
+    <!-- mysql 分页尾 -->
+    <sql id="pagination_Tail">
+        <![CDATA[
+        ) row_  LIMIT #{pager.firstPage},#{pager.lastPage}
+        ]]>
+    </sql>
+    <!-- count * from -->
+    <sql id="count_Start_Head">
+        <![CDATA[
+        select count(*) count from (
+        ]]>
+    </sql>
+    <sql id="count_Start_Tail">
+        <![CDATA[
+        ) t
+        ]]>
+    </sql>
+    <sql id="order_head">
+        <![CDATA[ SELECT order_.* from ( ]]>
+    </sql>
+    <sql id="order_by">
+        <![CDATA[ ) order_ ]]>
+        <if test="pager.orderProperty != null and pager.order != null">
+            ORDER BY ${pager.orderProperty} ${pager.order}
+        </if>
+    </sql>
+
+    <!--分页查询要货商品信息-->
+    <select id="queryYhGoodsPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="queryYhGoodsColumn"/>
+        <!--<include refid="order_by"/>-->
+        <![CDATA[
+        ) row_  LIMIT #{model.pager.firstPage},#{model.pager.lastPage}
+        ]]>
+    </select>
+    <!--统计要货商品信息-->
+    <select id="queryYhGoodsCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="queryYhGoodsColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="queryYhGoodsColumn">
+        <![CDATA[
+                SELECT
+                  g.id AS goods_id,
+                  g.combination_type,
+                  g.goods_code,
+                  IF (
+	              g.standard_name IS NULL or g.standard_name="",
+	              g.goods_name,
+	              concat(g.goods_name,"(",g.standard_name,")"))
+	              goods_name,
+                  g.bar_code,
+                  g.category_id,
+                  g.category_name,
+                  g.goods_unit_name,
+                  g.packing_unit_name,
+                  g.unit_relation,
+                  CASE
+                    WHEN bg.shipping_price IS NOT NULL
+                    THEN bg.shipping_price
+                    WHEN b.shipping_price_type = 1
+                    THEN g.shipping_price1
+                    WHEN b.shipping_price_type = 2
+                    THEN g.shipping_price2
+                    ELSE g.purchasing_price
+                  END g_price ,
+                  1 yh_quantity,
+                  GROUP_CONCAT(CONCAT(grel.goods_id,'=',grel.quantity)) detail_goods_id
+                FROM
+                  goods g
+                  INNER JOIN branch gb_
+                    on g.tenant_id = gb_.tenant_id and g.branch_id = gb_.id
+                  INNER JOIN
+                    (SELECT * FROM branch bh WHERE bh.id = #{model.psBranchId}) b
+                    ON g.tenant_id = b.tenant_id
+                  LEFT JOIN
+                    (SELECT * FROM branch_require_goods_setting gs
+                    WHERE gs.tenant_id = #{model.tenantId} AND gs.branch_id = #{model.yhBranchId} and gs.is_deleted = 0) bg
+                    ON g.id = bg.goods_id AND g.tenant_id = bg.tenant_id
+                    AND bg.distribution_center_id = b.id
+                 LEFT JOIN goods_produce_relation grel
+                 ON g.id = grel.produce_goods_id AND grel.is_deleted = 0  AND g.combination_type = 3
+                WHERE g.tenant_id = #{model.tenantId}
+                  AND g.goods_type = 1
+                  AND (g.is_store = 1 OR g.combination_type = 3)
+                  AND g.is_deleted = 0
+                  AND gb_.code = '000'
+        ]]>
+        <!--是否只查询要货关系商品-->
+        <if test="yhSetting">
+            AND bg.id is not null
+        </if>
+        <if test="model.goodsNameOrCodeLike != null">
+            <![CDATA[ AND ( g.goods_code like #{model.goodsNameOrCodeLike} or g.goods_name like #{model.goodsNameOrCodeLike} or g.mnemonic like #{model.goodsNameOrCodeLike} or g.bar_code like #{model.goodsNameOrCodeLike}) ]]>
+        </if>
+        <if test="model.barCode != null">
+            <![CDATA[AND g.bar_code = #{model.barCode}]]>
+        </if>
+        <if test="model.catIdArray != null">
+            <foreach collection="model.catIdArray" item="item" open="and ( " close=" )" separator=" or">
+                g.category_id = #{item}
+            </foreach>
+        </if>
+        <if test="goodsIds != null">
+            <foreach collection="goodsIds" item="item" open="and ( " close=" )" separator=" or">
+                g.id = #{item}
+            </foreach>
+        </if>
+        <if test="model.onlySelf == 1">
+            AND g.branch_id = #{model.yhBranchId}
+        </if>
+        GROUP BY g.id
+    </sql>
+    <!--统计要货关系-->
+    <select id="yhSettingCount" resultType="long">
+        select count(*)total from branch_require_goods_setting gs where gs.branch_id = #{yhBranchId}
+        and gs.distribution_center_id = #{psBranchId} and gs.is_deleted = 0
+    </select>
+
+    <insert id="saveYhOrder" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO require_goods_order (
+        tenant_id,tenant_code,branch_id,distribution_center_id,`require_goods_order_no`,
+        total_amount,create_user_id,make_at,make_by,status,
+        is_deleted,create_at,create_by,last_update_by,last_update_at
+        ) VALUE (${tenantId},#{tenantCode},#{branchId},#{distributionCenterId},#{requireGoodsOrderNo},
+        #{totalAmount},#{createUserId},#{makeAt},#{createUserId},0,0,
+        #{makeAt},#{createUserId},#{createUserId},#{makeAt})
+    </insert>
+    <update id="updateYhOrder" >
+        update require_goods_order
+        set last_update_at = now(),last_update_by = #{empId},version = next_version(version),total_amount=#{totalAmount}
+        where id = #{orderId}
+    </update>
+    <insert id="saveYhOrderDetail" useGeneratedKeys="true" >
+        INSERT INTO require_goods_order_detail (
+        require_goods_order_id,goods_id,
+        amount,price,subtotal,memo,
+        is_deleted,create_at,create_by,
+        last_update_by,last_update_at, unit_type, unit_relation,tenant_id )
+        <if test="details.size() == 1">
+            value
+        </if>
+        <if test="details.size() > 1">
+            values
+        </if>
+        <foreach item="item" collection="details" separator=",">
+            (#{orderId}, #{item.goodsId}, #{item.amount}, #{item.price}, #{item.subtotal}, #{item.memo},
+            0, #{item.createAt}, #{item.createBy}, #{item.createBy}, #{item.createAt}, #{item.unitType}, #{item.unitRelation},#{item.tenantId})
+        </foreach>
+    </insert>
+
+    <select id="queryYhOrderPager" resultType="mapUnderscoreToCamelCase" >
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="yhOrderColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <select id="yhOrderCount" resultType="long" >
+        <include refid="count_Start_Head"/>
+        <include refid="yhOrderColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <select id="queryYhOrderSum" resultType="mapUnderscoreToCamelCase">
+        SELECT SUM(IFNULL(d.total_amount,0)) total_amount FROM (
+        <include refid="yhOrderColumn"/>) d
+    </select>
+    <sql id="yhOrderColumn">
+        <![CDATA[
+                select * from (
+                    select su.*,sum(IF(su.pso_id is NULL ,0,1)) ps_num, rd.unit_type, rd.unit_relation from (
+                        SELECT
+                          r.id order_id,r.require_goods_order_no order_code,pso.code pso_code,psi.code psi_code,
+                          yb.id yh_branch_id,yb.name yh_branch_name,yba.name yh_branch_area_name,
+                          pb.id ps_branch_id,pb.name ps_branch_name,pba.name ph_branch_area_name,
+                          r.status,r.total_amount,r.amount_paid,
+                          r.paid_type,r.make_at,e.name make_emp_name,e.code make_emp_code,e.id make_emp_id,
+                          r.audit_at,ae.name audit_emp_name,ae.code audit_emp_code,ae.id audit_emp_id,
+                          r.version,psi.id psi_id, pso.id pso_id,psi.status psi_status,pso.status pso_status
+                        FROM
+                          require_goods_order r
+                          INNER JOIN branch yb
+                            ON r.branch_id = yb.id
+                          INNER JOIN `area` yba
+                            ON yb.area_id = yba.id
+                          INNER JOIN branch pb
+                            ON r.distribution_center_id = pb.id
+                          INNER JOIN `area` pba
+                            ON pb.area_id = pba.id
+                          INNER JOIN employee e
+                            ON r.create_user_id = e.id
+                          LEFT JOIN employee ae
+                            ON r.audit_user_id = ae.id
+                          LEFT JOIN ps_store_order pso
+                            ON r.require_goods_order_no = pso.require_goods_code
+                            AND r.tenant_id = pso.tenant_id
+                            AND r.branch_id = pso.target_branch_id
+                            AND pso.is_deleted = 0
+                          LEFT JOIN ps_store_order psi ON pso.code = psi.require_goods_code
+						    AND psi.tenant_id = pso.tenant_id
+						    AND psi.branch_id = pso.target_branch_id
+						    AND psi.is_deleted = 0
+                        WHERE r.is_deleted = 0
+                          AND r.tenant_id = ${tenantId}
+                    )su
+                    LEFT JOIN require_goods_order_detail rd ON rd.require_goods_order_id = su.order_id
+                    GROUP by su.order_id
+                    )r
+                    WHERE 1=1
+        ]]>
+        <if test="codeLike != null">
+            <![CDATA[ AND r.order_code like #{codeLike}]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND r.order_code = #{code}]]>
+        </if>
+        <if test="yhBranchId != null">
+            <if test="isPayDispatching == 1">
+                <![CDATA[ AND ((r.yh_branch_id = #{yhBranchId} AND r.status in(1,2,3,4,5)) or (r.ps_branch_id = #{yhBranchId} and r.status = 2))]]>
+            </if>
+            <if test="isPayDispatching != 1">
+                <![CDATA[ AND (r.yh_branch_id = #{yhBranchId} or (r.ps_branch_id = #{yhBranchId} and r.status in(1,2,3,4,5)))]]>
+            </if>
+        </if>
+        <if test="psBranchId != null">
+            <![CDATA[ AND r.ps_branch_id = #{psBranchId}]]>
+        </if>
+        <if test="status != null">
+            <![CDATA[ AND r.status = #{status}]]>
+        </if>
+        <if test="statusList != null">
+            <![CDATA[ AND r.status in (${statusList})]]>
+        </if>
+        <if test="payType != null">
+            <![CDATA[ AND r.paid_type = #{payType}]]>
+        </if>
+        <if test="amountMin != null">
+            <![CDATA[ AND r.total_amount >= #{amountMin}]]>
+        </if>
+        <if test="amountMax != null">
+            <![CDATA[ AND r.total_amount <= #{amountMax}]]>
+        </if>
+        <if test="psNum != null">
+            <![CDATA[ AND r.ps_num = #{psNum}]]>
+        </if>
+        <if test="startDate != null">
+            <![CDATA[ AND r.make_at >= '${startDate}:00']]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND r.make_at <= '${endDate}:59']]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND r.make_emp_id = #{empId}]]>
+        </if>
+        <if test="psStatus != null">
+            <if test="psStatus == 0">
+                AND r.pso_code IS NULL
+            </if>
+            <if test="psStatus == 1">
+                AND r.pso_code IS NOT NULL
+            </if>
+        </if>
+    </sql>
+
+    <select id="queryYhOrderDetailList" resultType="mapUnderscoreToCamelCase" >
+        <include refid="yhOrderDetailColumn"/>
+    </select>
+     <!--要货单合计-->
+    <select id="queryYhOrderDetailListTotal" resultType="mapUnderscoreToCamelCase" >
+        SELECT SUM(yhOrder.amount) amount,SUM(yhOrder.distribution_quantity) distribution_quantity,SUM(yhOrder.receiving_quantity)  receiving_quantity FROM (
+        <include refid="yhOrderDetailColumn"/>
+        )yhOrder
+
+    </select>
+
+    <sql id="yhOrderDetailColumn">
+        <![CDATA[
+            SELECT
+              ps.goods_id,ps.goods_code,ps.bar_code,ps.goods_name,ps.amount,
+              ps.price,ps.subtotal,ps.distribution_quantity,
+              ps.category_name,ps.goods_unit_name,ps.packing_unit_name,
+              SUM(IFNULL(psrd.quantity, 0)) receiving_quantity, ps.unit_type, ps.unit_relation, ps.shipping_price1
+            FROM
+              (SELECT
+                rd.goods_id,g.goods_code,g.bar_code,g.category_name,g.goods_unit_name,g.packing_unit_name,
+                IF (
+                    g.standard_name IS NULL or g.standard_name="",
+                    g.goods_name,
+                    concat(g.goods_name,"(",g.standard_name,")")
+                    ) goods_name,rd.amount,rd.price,rd.subtotal,
+                rd.require_goods_order_id require_goods_order_id,
+                pso.tenant_id,pso.target_branch_id,
+                SUM(IFNULL(pscd.quantity, 0)) distribution_quantity, rd.unit_type, rd.unit_relation, g.shipping_price1
+              FROM
+                require_goods_order_detail rd
+                INNER JOIN goods g ON rd.goods_id = g.id
+                INNER JOIN require_goods_order o ON rd.require_goods_order_id = o.id
+                LEFT JOIN ps_store_order pso
+                  ON o.require_goods_order_no = pso.require_goods_code
+                  AND o.tenant_id = pso.tenant_id AND o.distribution_center_id = pso.branch_id
+                  AND pso.is_deleted = 0 AND pso.type = 2 AND pso.status = 1
+                LEFT JOIN ps_store_order_detail pscd
+                  ON pso.id = pscd.order_id  AND rd.goods_id = pscd.goods_id AND pscd.is_deleted = 0
+              WHERE rd.`require_goods_order_id` = #{orderId}
+                AND rd.`is_deleted` = 0
+              GROUP BY rd.goods_id) ps
+              INNER JOIN require_goods_order ro
+                ON ps.require_goods_order_id = ro.id
+              LEFT JOIN ps_store_order pso_
+                ON ro.require_goods_order_no = pso_.require_goods_code
+                AND ro.tenant_id = pso_.tenant_id
+                AND ro.distribution_center_id = pso_.branch_id
+                AND pso_.is_deleted = 0
+                AND pso_.type = 2
+                AND pso_.status = 1
+              LEFT JOIN ps_store_order psro
+                ON pso_.code = psro.require_goods_code
+                AND pso_.tenant_id = psro.tenant_id
+                AND pso_.target_branch_id = psro.branch_id
+                AND psro.is_deleted = 0
+                AND psro.type = 1
+                AND psro.status = 1
+              LEFT JOIN ps_store_order_detail psrd
+                ON psro.id = psrd.order_id
+                AND ps.goods_id = psrd.goods_id
+                AND psrd.is_deleted = 0
+            GROUP BY ps.goods_id
+        ]]>
+    </sql>
+
+    <select id="isAutomaticExaminationOfBranch" resultType="Boolean">
+        select is_automatic_examination from branch b where b.id = #{psBranchId}
+    </select>
+    <update id="auditOrder" >
+        update require_goods_order
+        set status = #{auditStatus} ,audit_by = #{empId},
+        audit_at = now(),
+        audit_user_id = #{empId},
+        last_update_at = now(),last_update_by = #{empId},version = next_version(version)
+        where id = #{orderId}
+    </update>
+    <update id="delOrder" >
+        update require_goods_order
+        set is_deleted = 1 ,last_update_at = now(),last_update_by = #{empId},version = next_version(version),code_index_var = id
+        where id = #{orderId}
+    </update>
+    <update id="delOrderDetail" >
+        update require_goods_order_detail
+        set is_deleted = 1 ,last_update_at = now()
+        where require_goods_order_id = #{orderId}
+    </update>
+
+    <!--分页查询要货单汇总-->
+    <select id="queryYhGoodsSumPager" resultType="mapUnderscoreToCamelCase" >
+        <include refid="pagination_Head"/>
+        <include refid="queryYhGoodsSum"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <select id="queryYhGoodsSumCount" resultType="mapUnderscoreToCamelCase" >
+        <!--<include refid="count_Start_Head"/>-->
+        select count(*) count ,sum(yh_quantity) yh_quantity ,sum(ps_quantity) ps_quantity ,sum(sh_quantity) sh_quantity,sum(subtotal) subtotal from (
+        <include refid="queryYhGoodsSum"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+
+    <sql id="queryYhGoodsSum">
+        SELECT
+        g.goods_code,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name,
+        g.bar_code,
+        c.cat_code,c.cat_name,
+        gu.unit_code,gu.unit_name,
+        rod.goods_id,sum(IFNULL(IF(rod.unit_type=1,rod.amount,rod.amount*rod.unit_relation),0)) yh_quantity,
+        sum(rod.subtotal) subtotal,
+        sum(IFNULL(IF(a.unit_type=1,IFNULL(a.quantity,0),IFNULL(a.quantity,0)*a.unit_relation),0)) ps_quantity,
+        sum(IFNULL(IF(b.unit_type=1,IFNULL(b.quantity,0),IFNULL(b.quantity,0)*b.unit_relation),0)) sh_quantity
+        FROM
+        require_goods_order ro INNER JOIN require_goods_order_detail rod on ro.id=rod.require_goods_order_id AND rod.is_deleted=0 AND ro.is_deleted=0
+        INNER JOIN goods g
+        ON g.id=rod.goods_id
+        INNER JOIN category c
+        ON c.tenant_id = g.tenant_id
+        AND c.id=g.category_id
+        INNER JOIN goods_unit gu
+        ON gu.tenant_id=g.tenant_id
+        AND gu.id=g.goods_unit_id
+        LEFT JOIN (select psod.unit_relation,psod.unit_type,psod.goods_id,psod.quantity,pso.tenant_id,pso.code,pso.require_goods_code,pso.type from ps_store_order pso
+        INNER JOIN ps_store_order_detail psod
+        ON pso.tenant_id=psod.tenant_id
+        AND pso.id=psod.order_id
+        AND pso.is_deleted=0
+        AND psod.is_deleted=0
+        AND pso.type = 2
+        AND pso.status = 1) a
+        ON rod.goods_id=a.goods_id
+        AND ro.tenant_id = a.tenant_id
+        AND ro.require_goods_order_no=a.require_goods_code
+        LEFT JOIN (select psid.unit_relation,psid.unit_type,psi.code,psid.goods_id,psid.quantity,psi.tenant_id,psi.require_goods_code,psi.type from ps_store_order psi
+        INNER JOIN ps_store_order_detail psid
+        on psi.tenant_id=psid.tenant_id
+        AND psi.id=psid.order_id
+        AND psi.is_deleted=0
+        AND psid.is_deleted=0
+        AND psi.type = 1
+        AND psi.status = 1) b
+        on b.goods_id=a.goods_id
+        AND a.tenant_id=b.tenant_id
+        AND a.`code`=b.require_goods_code
+        WHERE ro.tenant_id=${tenantId}
+        AND ro.distribution_center_id = #{psBranchId}
+        <if test="yhBranchIdsArray != null" >
+            <foreach collection="yhBranchIdsArray" item="item" open="and ( " close=" )" separator=" or">
+                ro.branch_id = #{item}
+            </foreach>
+        </if>
+        <if test="yhOrderStatus !=null">
+            and ro.status = #{yhOrderStatus}
+        </if>
+        <if test="yhOrderStatus ==null">
+            and ro.status in (1,2)
+        </if>
+        <if test="startDate != null">
+            <![CDATA[ AND ro.make_at >= '${startDate}:00']]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND ro.make_at <= '${endDate}:59']]>
+        </if>
+        <if test="psStatus != null">
+            <if test="psStatus == 0">
+                AND a.require_goods_code IS NULL
+            </if>
+            <if test="psStatus == 1">
+                AND a.require_goods_code IS NOT NULL
+            </if>
+        </if>
+        <if test="onlySelf == 1">
+            AND g.branch_id = #{psBranchId}
+        </if>
+        GROUP BY rod.goods_id
+        ORDER BY rod.goods_id ASC
+    </sql>
+    <select id="listRequireGoodsByDockingExternalSystem" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        `goods`.`id`,
+        `goods`.`goods_code`,
+        IF (
+        `goods`.standard_name IS NULL or `goods`.standard_name="",
+        `goods`.`goods_name`,
+        concat(`goods`.goods_name,"(",`goods`.standard_name,")")
+        ) goods_name,
+        `branch_require_goods_setting`.`shipping_price`,
+        `goods_mapping`.`other_goods_id`
+        FROM `branch_require_goods_setting`
+        INNER JOIN `goods` ON `branch_require_goods_setting`.`goods_id` = `goods`.`id` AND `goods`.`is_deleted` = 0
+        INNER JOIN `goods_mapping` ON `goods_mapping`.`our_goods_id` = `branch_require_goods_setting`.`goods_id` AND goods_mapping.tenant_id = ${tenantId} AND goods_mapping.distribution_center_id = #{distributionCenterId}
+        WHERE `branch_require_goods_setting`.`tenant_id` = ${tenantId}
+        AND `branch_require_goods_setting`.`distribution_center_id` = #{distributionCenterId}
+        AND `branch_require_goods_setting`.`branch_id` = #{branchId}
+        AND `branch_require_goods_setting`.`is_deleted` = 0
+        <if test="categoryIds != null and categoryIds != ''">
+            AND `goods`.`category_id` IN (#{categoryIds})
+        </if>
+        <if test="barCodeOrName != null and barCodeOrName != ''">
+            AND (`goods`.`goods_code` LIKE #{barCodeOrName} OR `goods`.`goods_name` LIKE #{barCodeOrName})
+        </if>
+    </select>
+    <select id="listRequireGoods" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        `goods`.`id`,
+        `goods`.`goods_code`,
+        IF (
+        `goods`.standard_name IS NULL or `goods`.standard_name="",
+        `goods`.`goods_name`,
+        concat(`goods`.goods_name,"(",`goods`.standard_name,")")
+        ) goods_name,
+        `branch_require_goods_setting`.`shipping_price`,
+        `store`.`quantity` AS stock_amount
+        FROM `branch_require_goods_setting`
+        INNER JOIN `goods` ON `branch_require_goods_setting`.`tenant_id` = `goods`.`tenant_id` AND `branch_require_goods_setting`.`goods_id` = `goods`.`id` AND `goods`.`is_deleted` = 0
+        LEFT JOIN `store` ON `branch_require_goods_setting`.`tenant_id` = `store`.`tenant_id` AND `store`.`branch_id` = #{distributionCenterId} AND `branch_require_goods_setting`.`goods_id` = `store`.`goods_id` AND `store`.`is_deleted` = 0
+        WHERE `branch_require_goods_setting`.`tenant_id` = ${tenantId}
+        AND `branch_require_goods_setting`.`distribution_center_id` = #{distributionCenterId}
+        AND `branch_require_goods_setting`.`branch_id` = #{branchId}
+        AND `branch_require_goods_setting`.`is_deleted` = 0
+        <if test="categoryIds != null and categoryIds != ''">
+            AND `goods`.`category_id` IN (#{categoryIds})
+        </if>
+        <if test="barCodeOrName != null and barCodeOrName != ''">
+            AND (`goods`.`goods_code` LIKE #{barCodeOrName} OR `goods`.`goods_name` LIKE #{barCodeOrName})
+        </if>
+    </select>
+    <select id="queryDaqGraspBtype" resultType="mapUnderscoreToCamelCase">
+        SELECT * FROM `daq_grasp_btype`
+        WHERE `daq_grasp_btype`.`type_id` = (
+        SELECT `branch_mapping`.`other_branch_id`
+        FROM `branch_mapping`
+        WHERE `branch_mapping`.`tenant_id` = ${tenantId}
+        AND `branch_mapping`.`our_branch_id` = #{ourBranchId}
+        AND `branch_mapping`.`distribution_center_id` = #{distributionCenterId})
+        AND `daq_grasp_btype`.`tenant_code` = #{tenantCode}
+    </select>
+
+    <select id="queryDaqGraspPtypeNameByTypeId" resultType="java.lang.String">
+        SELECT `daq_grasp_ptype`.`full_name`
+        FROM `daq_grasp_ptype`
+        WHERE `daq_grasp_ptype`.`type_id` = #{typeId} AND `daq_grasp_ptype`.`tenant_code` = #{tenantCode}
+    </select>
+
+    <select id="queryRequireGoodsOrderDetails" resultType="mapUnderscoreToCamelCase">
+        SELECT require_goods_order_detail.*,
+        goods_mapping.other_goods_id,
+        goods_mapping.unit_id,
+        daq_grasp_unit.unit_rate
+        FROM require_goods_order_detail
+        LEFT OUTER JOIN goods_mapping ON require_goods_order_detail.goods_id = goods_mapping.our_goods_id AND goods_mapping.tenant_id = ${tenantId} AND goods_mapping.distribution_center_id = #{distributionCenterId}
+        left outer join daq_grasp_unit on daq_grasp_unit.type_id = goods_mapping.other_goods_id and daq_grasp_unit.unit_id = goods_mapping.unit_id and daq_grasp_unit.tenant_code = #{tenantCode}
+        WHERE require_goods_order_detail.require_goods_order_id = #{requireGoodsOrderId}
+        AND require_goods_order_detail.is_deleted = 0
+    </select>
+
+    <select id="queryRequireGoodsOrderDetailsByRequireGoodsOrderId" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        `goods`.`goods_code`,
+        IF (
+        `goods`.standard_name IS NULL or `goods`.standard_name="",
+        `goods`.`goods_name`,
+        concat(`goods`.goods_name,"(",`goods`.standard_name,")")
+        ) goods_name,
+        `require_goods_order_detail`.`price`,
+        `require_goods_order_detail`.`amount`,
+        `require_goods_order_detail`.`unit_type`,
+        `goods`.`goods_unit_name`,
+        `goods`.`packing_unit_name`,
+        `goods`.`unit_relation`,
+        `goods`.bar_code
+        FROM
+        `require_goods_order_detail`
+        INNER JOIN `goods` ON `require_goods_order_detail`.`goods_id` = `goods`.`id`
+        WHERE `require_goods_order_detail`.`require_goods_order_id` = #{requireGoodsOrderId}
+        AND `require_goods_order_detail`.`is_deleted` = 0;
+    </select>
+
+    <select id="findByIdAndTenantIdAndBranchId" resultType="erp.chain.domain.supply.YhOrder">
+        SELECT r.*,e.name emp_name
+        FROM `require_goods_order` r INNER JOIN employee e ON r.make_by = e.id AND r.tenant_id = e.tenant_id
+        WHERE r.id = #{id}
+        AND r.tenant_id = ${tenantId}
+        AND r.branch_id = #{branchId}
+        AND r.is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="findByRequireGoodsOrderNo" resultType="erp.chain.domain.supply.YhOrder">
+        SELECT *
+        FROM `require_goods_order`
+        WHERE `require_goods_order`.`require_goods_order_no` = #{requireGoodsOrderNo}
+        AND `require_goods_order`.`is_deleted` = 0
+        LIMIT 1
+    </select>
+
+    <update id="updateRequireGoodsOrder" parameterType="erp.chain.domain.supply.YhOrder">
+        UPDATE require_goods_order
+        <set>
+            <if test="requireGoodsOrderNo != null">
+                require_goods_order_no = #{requireGoodsOrderNo},
+            </if>
+            <if test="tenantId != null">
+                tenant_id = ${tenantId},
+            </if>
+            <if test="tenantCode != null">
+                tenant_code = #{tenantCode},
+            </if>
+            <if test="branchId != null">
+                branch_id = #{branchId},
+            </if>
+            <if test="distributionCenterId">
+                distribution_center_id = #{distributionCenterId},
+            </if>
+            <if test="makeAt != null">
+                make_at = #{makeAt},
+            </if>
+            <if test="makeBy != null">
+                make_by = #{makeBy},
+            </if>
+            <if test="createUserId != null">
+                create_user_id = #{createUserId},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="auditAt != null">
+                audit_at = #{auditAt},
+            </if>
+            <if test="auditBy != null">
+                audit_by = #{auditBy},
+            </if>
+            <if test="auditUserId != null">
+                audit_user_id = #{auditUserId},
+            </if>
+            <if test="totalAmount != null">
+                total_amount = #{totalAmount},
+            </if>
+            <if test="amountPaid != null">
+                amount_paid = #{amountPaid},
+            </if>
+            <if test="paidType != null">
+                paid_type = #{paidType},
+            </if>
+            <if test="lastPaid != null">
+                last_paid = #{lastPaid},
+            </if>
+            <if test="createAt != null">
+                create_at = #{createAt},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy},
+            </if>
+            <if test="lastUpdateAt != null">
+                last_update_at = #{lastUpdateAt},
+            </if>
+            <if test="lastUpdateBy">
+                last_update_by = #{lastUpdateBy},
+            </if>
+            <if test="isDeleted != null">
+                is_deleted = #{isDeleted},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <select id="findByRequireGoodsOrderNoAndId" resultType="erp.chain.domain.supply.YhOrder">
+        SELECT *
+        FROM `require_goods_order`
+        WHERE `require_goods_order`.`require_goods_order_no` = #{requireGoodsOrderNo}
+        AND id = #{requireGoodsOrderId}
+        AND `require_goods_order`.`is_deleted` = 0
+        LIMIT 1
+    </select>
+
+    <select id="queryLastYhOrder" resultType="mapUnderscoreToCamelCase">
+        SELECT * FROM require_goods_order WHERE tenant_id = ${tenantId} AND branch_id = ${branchId} AND distribution_center_id = ${distributionCenterId}
+        order by make_at desc limit 1
+    </select>
+</mapper>

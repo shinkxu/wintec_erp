@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="60 seconds" debug="false">
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <jmxConfigurator/>
+
+    <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook"/>
+    <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener"/>
+
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>
+    <property name="FILE_LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} ${LOG_LEVEL_PATTERN:-%5p} ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>
+
+    <property name="MAX_FILE_SIZE" value="10MB"/>
+    <property name="MAX_HISTORY" value="7"/>
+    <property name="TOTAL_SIZE_CAP" value="10GB"/>
+    <property name="QUEUE_SIZE" value="512"/>
+    <property name="DISCARDING_THRESHOLD" value="0"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+    </appender>
+
+    <property name="DIR_NAME" value="${LOG_PATH}"/>
+    <property name="FILE_NAME" value="${LOG_FILE}"/>
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+        <file>${DIR_NAME}/${FILE_NAME}.current.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${DIR_NAME}/${FILE_NAME}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE:-10MB}</maxFileSize>
+            <maxHistory>${MAX_HISTORY:-7}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP:-10GB}</totalSizeCap>
+        </rollingPolicy>
+        <append>true</append>
+    </appender>
+    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+        <file>${DIR_NAME}/${FILE_NAME}.error.current.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${DIR_NAME}/${FILE_NAME}.error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE:-10MB}</maxFileSize>
+            <maxHistory>${MAX_HISTORY:-7}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP:-10GB}</totalSizeCap>
+        </rollingPolicy>
+        <append>true</append>
+    </appender>
+
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>${QUEUE_SIZE:-512}</queueSize>
+        <appender-ref ref="FILE"/>
+    </appender>
+    <appender name="ASYNC_FILE_ERROR" class="ch.qos.logback.classic.AsyncAppender">
+        <discardingThreshold>${DISCARDING_THRESHOLD:-0}</discardingThreshold>
+        <queueSize>${QUEUE_SIZE:-512}</queueSize>
+        <appender-ref ref="FILE_ERROR"/>
+    </appender>
+
+    <springProperty name="JDBC_URL" source="logging.jdbc.url" defaultValue="jdbc:mysql://114.116.111.163:3306/log-wintec_test-za1-erp-chain"/>
+    <springProperty name="JDBC_USERNAME" source="logging.jdbc.username" defaultValue="erp"/>
+    <springProperty name="JDBC_PASSWORD" source="logging.jdbc.password" defaultValue="erp@wintec"/>
+    <appender name="MYSQL" class="ch.qos.logback.classic.db.DBAppender">
+        <connectionSource class="ch.qos.logback.core.db.DriverManagerConnectionSource">
+            <driverClass>com.mysql.jdbc.Driver</driverClass>
+            <url>${JDBC_URL}</url>
+            <user>${JDBC_USERNAME}</user>
+            <password>${JDBC_PASSWORD}</password>
+        </connectionSource>
+    </appender>
+
+    <appender name="ASYNC_MYSQL" class="ch.qos.logback.classic.AsyncAppender">
+        <discardingThreshold>${DISCARDING_THRESHOLD:-0}</discardingThreshold>
+        <queueSize>${QUEUE_SIZE:-512}</queueSize>
+        <appender-ref ref="MYSQL"/>
+    </appender>
+    <appender name="ASYNC_MYSQL_WARN" class="ch.qos.logback.classic.AsyncAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>WARN</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <discardingThreshold>${DISCARDING_THRESHOLD:-0}</discardingThreshold>
+        <queueSize>${QUEUE_SIZE:-512}</queueSize>
+        <appender-ref ref="MYSQL"/>
+    </appender>
+    <appender name="ASYNC_MYSQL_ERROR" class="ch.qos.logback.classic.AsyncAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <discardingThreshold>${DISCARDING_THRESHOLD:-0}</discardingThreshold>
+        <queueSize>${QUEUE_SIZE:-512}</queueSize>
+        <appender-ref ref="MYSQL"/>
+    </appender>
+    <springProfile name="default,dev,dev2,dev3,dev4,dev5">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ASYNC_FILE_ERROR"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="test,alpha,beta">
+        <root level="INFO">
+            <appender-ref ref="ASYNC_MYSQL_WARN"/>
+            <appender-ref ref="ASYNC_MYSQL_ERROR"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ASYNC_FILE_ERROR"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="ASYNC_MYSQL_WARN"/>
+            <appender-ref ref="ASYNC_MYSQL_ERROR"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ASYNC_FILE_ERROR"/>
+        </root>
+    </springProfile>
+</configuration>

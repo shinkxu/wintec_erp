@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.OnlineDietPromotionMapper">
+    <select id="listFestivals" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        diet_promotion_festival.id,
+        diet_promotion_festival.tenant_id,
+        diet_promotion_festival.activity_name,
+        diet_promotion_festival.card_id,
+        diet_promotion_festival.limit_per_one,
+        diet_promotion_festival.total_inventory,
+        diet_promotion_festival.remain_inventory,
+        diet_promotion.id AS diet_promotion_id,
+        diet_promotion.create_branch_id,
+        diet_promotion.promotion_code,
+        diet_promotion.promotion_name,
+        diet_promotion.promotion_type,
+        diet_promotion.start_date,
+        diet_promotion.end_date,
+        diet_promotion.start_time,
+        diet_promotion.end_time,
+        diet_promotion.apply_to_mon,
+        diet_promotion.apply_to_tue,
+        diet_promotion.apply_to_wed,
+        diet_promotion.apply_to_thu,
+        diet_promotion.apply_to_fri,
+        diet_promotion.apply_to_sat,
+        diet_promotion.apply_to_sun,
+        diet_promotion.scope,
+        diet_promotion.for_customer_type,
+        diet_promotion.mem_grade_id,
+        diet_promotion.memo,
+        diet_promotion.promotion_status,
+        diet_promotion.is_use,
+        diet_promotion.is_superposition,
+        card_coupons.card_name,
+        card_coupons.card_type,
+        card_coupons.limit_value,
+        card_coupons.face_value,
+        card_coupons.period_of_validity,
+        card_coupons.color_value,
+        card_coupons.remark,
+        card_coupons.limit_branch_names
+        FROM diet_promotion_festival
+        INNER JOIN diet_promotion ON diet_promotion.id = diet_promotion_festival.diet_promotion_id AND diet_promotion.is_deleted = 0 AND (diet_promotion.start_date &lt;= DATE(NOW()) AND diet_promotion.end_date &gt;= DATE(NOW())) AND (diet_promotion.start_time &lt;= TIME(NOW()) AND diet_promotion.end_time &gt;= TIME(NOW())) AND (CASE DAYOFWEEK(NOW()) WHEN 1 THEN diet_promotion.apply_to_sun = 1 WHEN 2 THEN diet_promotion.apply_to_mon = 1 WHEN 3 THEN diet_promotion.apply_to_tue = 1 WHEN 4 THEN diet_promotion.apply_to_wed = 1 WHEN 5 THEN diet_promotion.apply_to_thu = 1 WHEN 6 THEN diet_promotion.apply_to_fri = 1 WHEN 7 THEN diet_promotion.apply_to_sat = 1 END) AND diet_promotion.promotion_status = 0 AND (diet_promotion.scope = 0 OR diet_promotion.scope = 2)
+        INNER JOIN card_coupons ON card_coupons.id = diet_promotion_festival.card_id AND card_coupons.card_type = 1 AND card_coupons.is_deleted = 0
+        <if test="branchId != null">
+            INNER JOIN diet_promotion_branch_r ON diet_promotion_branch_r.diet_promotion_id = diet_promotion.id AND diet_promotion_branch_r.branch_id = #{branchId} AND diet_promotion_branch_r.is_deleted = 0
+        </if>
+        WHERE diet_promotion_festival.tenant_id = #{tenantId}
+        AND diet_promotion_festival.is_deleted = 0
+    </select>
+    
+    <select id="statisticsEffectiveBranches" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        diet_promotion_branch_r.diet_promotion_id,
+        GROUP_CONCAT(branch.name) AS branch_names
+        FROM diet_promotion_branch_r
+        INNER JOIN branch ON branch.id = diet_promotion_branch_r.branch_id AND branch.is_deleted = 0
+        WHERE diet_promotion_branch_r.is_deleted = 0
+        AND diet_promotion_branch_r.diet_promotion_id IN
+        <foreach collection="dietPromotionIds" index="index" item="dietPromotionId" open="(" separator="," close=")">
+            #{dietPromotionId}
+        </foreach>
+        GROUP BY diet_promotion_branch_r.diet_promotion_id;
+    </select>
+</mapper>

@@ -1,0 +1,211 @@
+// Usage:
+//     1. snapshot build
+//        gradle clean build publishMavenJavaPublicationToMavenRepository
+//        gradle clean build publishMavenJavaPublicationToMavenLocalRepository
+//     2. release build
+//        gradle clean build publishMavenJavaPublicationToMavenRepository -Prelease
+//        gradle clean build publishMavenJavaPublicationToMavenLocalRepository -Prelease
+//
+
+buildscript {
+    repositories {
+        maven { url privateRepo2 }
+    }
+    dependencies {
+    }
+}
+
+plugins {
+    id 'org.springframework.boot' version '1.5.18.RELEASE'
+    id 'java'
+    id 'groovy'
+    id 'idea'
+    id 'war'
+}
+
+version = '3.0.0'
+group = 'wintec.svc'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+[compileJava, compileTestJava]*.options*.encoding = "UTF-8"
+compileJava {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+}
+javadoc {
+    options.encoding = 'UTF-8'
+    options.locale = 'zh_CN'
+    options.windowTitle = "${project.name} ${version}"
+    options.addStringOption("charset", "UTF-8")
+    options.addStringOption("link", "https://docs.oracle.com/javase/8/docs/api/")
+
+    source sourceSets.main.allJava
+}
+
+ext {
+    // gralde -Prelease
+    releasePublish = project.hasProperty("release")
+}
+
+configurations.all {
+    resolutionStrategy.cacheChangingModulesFor 1, 'seconds'
+}
+
+repositories {
+    maven { url privateRepo2 }
+    maven {
+        url publishRepoRelease2
+        credentials {
+            username = aliyunUsername
+            password = aliyunPassword
+        }
+    }
+    maven {
+        url publishRepoSnapshot2
+        credentials {
+            username = aliyunUsername
+            password = aliyunPassword
+        }
+    }
+}
+
+configurations.all {
+    resolutionStrategy.cacheChangingModulesFor 1, 'seconds'
+}
+
+dependencies {
+    compile 'org.codehaus.groovy:groovy-all:2.4.15'
+
+    compile 'org.springframework.boot:spring-boot-starter-web'
+    compile 'org.springframework.boot:spring-boot-starter-aop'
+    compile "org.springframework.boot:spring-boot-starter-security"
+    compile "org.springframework.security.oauth:spring-security-oauth2:2.0.7.RELEASE"
+    compile "org.springframework:spring-context-support"
+
+    compile "com.fasterxml.jackson.core:jackson-core:2.9.8"
+    compile "com.fasterxml.jackson.core:jackson-databind:2.9.8"
+    compile "com.fasterxml.jackson.core:jackson-annotations:2.9.8"
+    compile "org.codehaus.jackson:jackson-mapper-asl:1.9.13"
+
+    compile "org.quartz-scheduler:quartz:2.2.1"
+    compile "org.quartz-scheduler:quartz-jobs:2.2.1"
+    compile "com.google.code.gson:gson:2.3"
+    compile "com.alibaba:fastjson:1.2.3"
+    compile "org.json:json:20180813"
+    compile 'net.sf.json-lib:json-lib:2.4:jdk15'
+    compile "javax.xml.rpc:javax.xml.rpc-api:1.1.2"
+    compile "org.apache.axis:axis:1.4"
+    compile "xom:xom:1.2.5"
+    compile "dom4j:dom4j:1.6.1"
+
+    compile "org.apache.commons:commons-lang3:3.9"
+    compile "commons-logging:commons-logging:1.2"
+    compile 'commons-beanutils:commons-beanutils:1.9.2'
+    compile "commons-discovery:commons-discovery:0.2"
+    compile "net.sourceforge.pinyin4j:pinyin4j:2.5.0"
+    compile "cn.jpush.api:jpush-client:3.2.18"
+    compile "org.bouncycastle:bcprov-jdk15on:1.60"
+
+    compile "com.google.protobuf:protobuf-java:2.5.0"
+    compile "com.aliyun.openservices:aliyun-log-logback-appender:0.1.13"
+
+    compile "wintec.core:wintec-core-saas-common:3.0.1"
+    compile "wintec.core:wintec-core-saas-api:3.0.1"
+
+    compile "redis.clients:jedis:2.9.3"
+
+    compileOnly "mysql:mysql-connector-java:5.1.47"
+    compile 'com.alibaba:druid:1.1.6'
+    //runtime "com.mchange:c3p0:0.9.5.2"
+    compile 'org.mybatis.spring.boot:mybatis-spring-boot-starter:1.1.1'
+
+    testCompile 'org.springframework.boot:spring-boot-starter-test'
+    testCompile 'com.jayway.jsonpath:json-path:2.2.0'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir 'src/main/groovy'
+        }
+        resources {
+            srcDir 'src/resources'
+        }
+    }
+}
+
+jar {
+    baseName = project.name
+    enabled = false
+}
+
+war {
+    baseName = project.name
+    enabled = true
+}
+
+test {
+    enabled = false
+}
+
+gradle.projectsEvaluated {
+    tasks.withType(GroovyCompile) {
+        options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+    }
+    tasks.withType(JavaCompile) {
+        options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+    }
+}
+
+// ====
+
+apply plugin: "maven-publish"
+
+publishing {
+    repositories {
+        if (publishToLocal) {
+            maven { mavenLocal() }
+        } else if (releasePublish) {
+            maven {
+                url = "${publishRepoRelease2}"
+                credentials {
+                    username = aliyunUsername
+                    password = aliyunPassword
+                }
+            }
+        } else {
+            maven {
+                url = "${publishRepoSnapshot2}"
+                credentials {
+                    username = aliyunUsername
+                    password = aliyunPassword
+                }
+            }
+        }
+    }
+    publications {
+        mavenJava(MavenPublication) {
+            artifact war
+            pom {
+                name = project.name
+                packaging = 'war'
+                description = "The ERP service for Smartpos"
+                url = "http://www.wintec.cn"
+            }
+            afterEvaluate {
+                if (!project.releasePublish) {
+                    version += "-SNAPSHOT"
+                }
+                artifactId = war.baseName
+            }
+        }
+    }
+}
+
+// ====
+
+wrapper {
+    gradleVersion = gradleWrapperVersion
+}

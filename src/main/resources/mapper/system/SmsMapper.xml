@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.system.SmsMapper">
+    <insert id="saveSmsLog" parameterType="erp.chain.domain.system.SmsUseHistory">
+        INSERT INTO sms_use_history(
+        tenant_id,
+        use_branch_id,
+        type,
+        send_number,
+        rest_count,
+        create_at,
+        create_by,
+        last_update_at,
+        last_update_by
+        )
+        VALUES(
+        ${tenantId},#{useBranchId},#{type},#{sendNumber},#{restCount},#{createAt},#{createBy},#{lastUpdateAt},#{lastUpdateBy}
+        )
+    </insert>
+</mapper>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.o2o.ElemeGoodsMappingMapper">
+    <insert id="insert" parameterType="erp.chain.domain.o2o.ElemeGoodsMapping">
+        INSERT INTO eleme_goods_mapping(tenant_id, branch_id, eleme_goods_id, our_goods_id) VALUE (${tenantId}, #{branchId}, #{elemeGoodsId}, #{ourGoodsId})
+    </insert>
+
+    <delete id="update" parameterType="erp.chain.domain.o2o.ElemeGoodsMapping">
+        UPDATE eleme_goods_mapping
+        SET our_goods_id = #{ourGoodsId}
+        WHERE tenant_id = ${tenantId}
+        AND branch_id = #{branchId}
+        AND eleme_goods_id = #{elemeGoodsId}
+    </delete>
+
+    <select id="findByTenantIdAndBranchIdAndElemeGoodsId" resultType="erp.chain.domain.o2o.ElemeGoodsMapping">
+        SELECT * FROM eleme_goods_mapping
+        WHERE tenant_id = ${tenantId}
+        AND branch_id = #{branchId}
+        AND eleme_goods_id = #{elemeGoodsId}
+    </select>
+</mapper>

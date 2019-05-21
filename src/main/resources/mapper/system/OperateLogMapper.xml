@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.system.OperateLogMapper">
+    <insert id="createOpLog">
+        insert into s_operate_log values(null,#{resource},#{resourceId},#{operate},#{oldValue},#{newValue},#{opBy},NOW(),#{opFrom},#{memo},#{tenantId},#{branchId},null)
+    </insert>
+    <select id="getName" resultType="String">
+        SELECT name FROM domain_mapping WHERE resource=#{resource} AND key_word=#{key}
+    </select>
+</mapper>

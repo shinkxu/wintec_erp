@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="erp.chain.mapper.supply.store.PsOrderMapper">
+
+    <!-- mysql 分页头 -->
+    <sql id="pagination_Head">
+        <![CDATA[
+        select row_.* from (
+        ]]>
+    </sql>
+    <!-- mysql 分页尾 -->
+    <sql id="pagination_Tail">
+        <![CDATA[
+        ) row_  LIMIT #{pager.firstPage},#{pager.lastPage}
+        ]]>
+    </sql>
+    <!-- count * from -->
+    <sql id="count_Start_Head">
+        <![CDATA[
+        select count(*) count from (
+        ]]>
+    </sql>
+    <sql id="count_Start_Tail">
+        <![CDATA[
+        ) t
+        ]]>
+    </sql>
+    <sql id="order_head">
+        <![CDATA[ SELECT order_.* from ( ]]>
+    </sql>
+    <sql id="order_by">
+        <![CDATA[ ) order_ ]]>
+        <if test="pager.orderProperty != null and pager.order != null">
+            ORDER BY ${pager.orderProperty} ${pager.order}
+        </if>
+    </sql>
+
+
+    <select id="queryPsOrderPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="psOrderColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <select id="psOrderCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="psOrderColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="psOrderColumn">
+        <![CDATA[
+                SELECT t.*, SUM(if(t.psc_id is NULL ,0,1)) psc_num
+                FROM (SELECT
+                      po.tenant_id,po.branch_id,b.name branch_name,po.id order_id,
+                      po.target_branch_id,bb.name  target_branch_name,
+                      po.code,po.require_goods_code,
+                      po.type,po.status,po.make_at,po.make_by,e.name make_name,
+                      po.audit_at,po.audit_by,po.quantity,ee.name audit_name,
+                      po.distribution_price,po.amount,po.version,po.memo,psc.id psc_id,po.is_update_price
+                    FROM
+                      ps_store_order po
+                      INNER JOIN branch b ON po.branch_id = b.id
+                      INNER JOIN branch bb ON po.target_branch_id = bb.id
+                      INNER JOIN employee e  ON po.make_by = e.id
+                      LEFT JOIN employee ee ON po.audit_by = ee.id
+                      LEFT JOIN ps_store_order psc ON po.code = psc.require_goods_code
+                        AND po.tenant_id = psc.tenant_id AND po.branch_id = psc.target_branch_id
+                        AND psc.is_deleted=0
+                        WHERE po.is_deleted = 0) t
+                        where t.tenant_id = ${tenantId}
+        ]]>
+        <if test="codeLike != null">
+            <![CDATA[ AND t.code like #{codeLike}]]>
+        </if>
+        <if test="code != null">
+            <![CDATA[ AND t.code = #{code}]]>
+        </if>
+        <if test="branchId != null">
+            <![CDATA[ AND t.branch_id = #{branchId}]]>
+        </if>
+        <if test="targetBranchId != null">
+            <![CDATA[ AND t.target_branch_id = #{targetBranchId}]]>
+        </if>
+        <if test="status != null">
+            <![CDATA[ AND t.status = #{status}]]>
+        </if>
+        <if test="type != null">
+            <![CDATA[ AND t.type = #{type}]]>
+        </if>
+        <if test="amountMin != null">
+            <![CDATA[ AND t.amount >= #{amountMin}]]>
+        </if>
+        <if test="amountMax != null">
+            <![CDATA[ AND t.amount <= #{amountMax}]]>
+        </if>
+        <if test="startDate != null">
+            <![CDATA[ AND t.make_at >= '${startDate}:00']]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND t.make_at <= '${endDate}:59']]>
+        </if>
+        <if test="empId != null">
+            <![CDATA[ AND t.make_by = #{empId}]]>
+        </if>
+        GROUP BY t.order_id
+        <if test="pscNum != null">
+            <![CDATA[having SUM(if(t.psc_id is NULL ,0,1)) = #{pscNum}]]>
+        </if>
+    </sql>
+
+    <select id="queryPsOrderDetailList" resultType="mapUnderscoreToCamelCase">
+        <include refid="psOrderDetailColumn"/>
+    </select>
+    <sql id="psOrderDetailColumn">
+        <![CDATA[
+            SELECT
+                    pd.goods_id,g.goods_code,IF (
+                    g.standard_name IS NULL or g.standard_name="",
+                    g.goods_name,
+                    concat(g.goods_name,"(",g.standard_name,")")
+                    ) goods_name,g.bar_code,pd.quantity, pd.distribution_price, pd.amount,g.purchasing_price,g.category_name,g.category_id,
+                     u.id goods_unit_id,u.unit_name goods_unit_name,u1.id packing_unit_id, u1.unit_name packing_unit_name,pd.unit_type,pd.unit_relation
+                FROM
+                    ps_store_order_detail pd
+                        INNER JOIN
+                    goods g ON pd.goods_id = g.id
+                     LEFT JOIN goods_unit u ON g.goods_unit_id = u.id
+                     LEFT JOIN goods_unit u1 ON g.packing_unit_id = u1.id
+                  WHERE pd.is_deleted = 0 AND pd.order_id = #{orderId}
+        ]]>
+    </sql>
+    <insert id="savePsOrder" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ps_store_order (
+        tenant_id,branch_id,target_branch_id,code,require_goods_code,type,
+        amount,distribution_price,quantity,make_at,make_by,status,
+        is_deleted,create_at,create_by,last_update_by,last_update_at,memo,is_update_price
+        ) VALUE (${tenantId},#{branchId},#{targetBranchId},#{code},#{requireGoodsCode},#{type},
+        #{amount},#{distributionPrice},#{quantity},#{makeAt},#{makeBy},0,0,
+        #{makeAt},#{makeBy},#{makeBy},#{makeAt},#{memo},#{isUpdatePrice})
+    </insert>
+    <update id="updatePsOrder" >
+        update ps_store_order
+        set last_update_at = #{makeAt},last_update_by = #{makeBy},version = next_version(version),
+        distribution_price=#{distributionPrice},quantity=#{quantity},amount=#{amount},memo = #{memo}, is_update_price=#{isUpdatePrice}
+        where version = #{version} and id = #{id}
+    </update>
+    <insert id="savePsOrderDetail" useGeneratedKeys="true" >
+        INSERT INTO ps_store_order_detail (
+        order_id,goods_id,tenant_id,branch_id,
+        amount,distribution_price,quantity,
+        is_deleted,create_at,create_by,
+        last_update_by,last_update_at,unit_type,unit_relation )
+        <if test="details.size() == 1">
+            value
+        </if>
+        <if test="details.size() > 1">
+            values
+        </if>
+        <foreach item="item" collection="details" separator=",">
+            (#{orderId}, #{item.goodsId}, #{item.tenantId},#{item.branchId},
+            #{item.amount}, #{item.distributionPrice}, #{item.quantity},
+            0, #{item.createAt}, #{item.createBy}, #{item.createBy}, #{item.createAt}, #{item.unitType}, #{item.unitRelation})
+        </foreach>
+    </insert>
+    <update id="delPsOrderDetails">
+        update ps_store_order_detail set is_deleted = 1 where order_id = #{orderId}
+    </update>
+    <update id="delOrder">
+        update ps_store_order set is_deleted = 1,version = next_version(version),
+        last_update_by = #{empId},last_update_at  = now()
+        where id = #{orderId} and is_deleted = 0
+    </update>
+    <update id="auditOrder">
+        update ps_store_order set status = 1,version = next_version(version),audit_by=#{empId},audit_at = now(),
+        last_update_by = #{empId},last_update_at  = now()
+        where id = #{orderId}
+    </update>
+</mapper>

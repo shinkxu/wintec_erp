@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.UniversalMapper">
+    <update id="universalUpdate" parameterType="erp.chain.utils.UpdateModel">
+        UPDATE ${tableName} SET
+        <foreach collection="contentValues" index="index" item="contentValue" separator=",">
+            <choose>
+                <when test="@org.apache.commons.lang.StringUtils@equals(contentValue.symbol, '#')">
+                    ${contentValue.columnName} = #{contentValue.value}
+                </when>
+                <when test="@org.apache.commons.lang.StringUtils@equals(contentValue.symbol, '$')">
+                    ${contentValue.columnName} = ${contentValue.value}
+                </when>
+            </choose>
+        </foreach>
+        <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </update>
+    
+    <select id="executeQuery" parameterType="java.util.Map" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        ${sql}
+    </select>
+
+    <update id="executeUpdate" parameterType="java.util.Map">
+        ${sql}
+    </update>
+
+    <select id="executeUniqueResultQuery" parameterType="java.util.Map" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        ${sql}
+    </select>
+
+    <select id="universalCount" parameterType="java.util.Map" resultType="long">
+        ${sql}
+    </select>
+
+    <sql id="searchConditionSql">
+        <if test="@org.apache.commons.collections.CollectionUtils@isNotEmpty(searchConditions)">
+            WHERE
+            <foreach collection="searchConditions" index="index" item="searchCondition" separator=" AND ">
+                <choose>
+                    <when test="@org.apache.commons.lang.StringUtils@equalsIgnoreCase(searchCondition.operationSymbol, 'IN')">
+                        ${searchCondition.columnName} ${searchCondition.operationSymbol}
+                        <foreach collection="searchCondition.searchParameter" index="index" item="item" open="(" separator="," close=")">
+                            #{item}
+                        </foreach>
+                    </when>
+                    <when test="@org.apache.commons.lang.StringUtils@equalsIgnoreCase(searchCondition.operationSymbol, 'NOT IN')">
+                        ${searchCondition.columnName} ${searchCondition.operationSymbol}
+                        <foreach collection="searchCondition.searchParameter" index="index" item="item" open="(" separator="," close=")">
+                            #{item}
+                        </foreach>
+                    </when>
+                    <otherwise>
+                        ${searchCondition.columnName} ${searchCondition.operationSymbol} #{searchCondition.searchParameter}
+                    </otherwise>
+                </choose>
+            </foreach>
+            <if test="@org.apache.commons.lang.StringUtils@isNotBlank(whereClause)">
+                AND ${@erp.chain.utils.DatabaseUtils@obtainWhereClause(whereClause)}
+            </if>
+        </if>
+        <if test="@org.apache.commons.collections.CollectionUtils@isEmpty(searchConditions) and @org.apache.commons.lang.StringUtils@isNotBlank(whereClause)">
+            WHERE ${@erp.chain.utils.DatabaseUtils@obtainWhereClause(whereClause)}
+        </if>
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(groupBy)">
+            GROUP BY ${groupBy}
+        </if>
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(orderBy)">
+            ORDER BY ${orderBy}
+        </if>
+    </sql>
+
+    <sql id="paginationSql">
+        LIMIT #{offset}, #{maxResults}
+    </sql>
+
+    <insert id="insert" parameterType="java.lang.Object" useGeneratedKeys="true" keyProperty="id">
+        ${@erp.chain.utils.DatabaseUtils@generateInsertSql(_parameter.getClass())}
+    </insert>
+
+    <insert id="insertAll" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        <bind name="sql" value="@erp.chain.utils.DatabaseUtils@generateInsertAllSql(list)"></bind>
+        ${sql[0]}
+        <foreach collection="list" index="index" item="item" separator=",">
+            ${sql[1]}
+        </foreach>
+    </insert>
+
+    <update id="update" parameterType="java.lang.Object">
+        ${@erp.chain.utils.DatabaseUtils@generateUpdateSql(_parameter.getClass())}
+    </update>
+
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT ${selectColumns} FROM ${tableName} <include refid="searchConditionSql"></include>
+    </select>
+
+    <select id="findAll" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT ${selectColumns} FROM ${tableName} <include refid="searchConditionSql"></include>
+    </select>
+
+    <select id="count" parameterType="erp.chain.utils.SearchModel" resultType="long">
+        SELECT COUNT(1) FROM ${tableName} <include refid="searchConditionSql"></include>
+    </select>
+
+    <select id="findAllPaged" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT ${selectColumns} FROM ${tableName} <include refid="searchConditionSql"></include> <include refid="paginationSql"></include>
+    </select>
+</mapper>

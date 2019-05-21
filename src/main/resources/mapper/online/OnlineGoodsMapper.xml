@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.OnlineGoodsMapper">
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineGoods">
+        SELECT * FROM goods <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="findAll" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineGoods">
+        SELECT * FROM goods <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="findEffectiveMenu" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        MAX(menu_id) AS menu_id
+        FROM menu
+        INNER JOIN branch_menu_r ON branch_menu_r.menu_id = menu.id AND branch_menu_r.tenant_id = menu.tenant_id
+        WHERE menu.cron_start_at &lt;= NOW() AND menu.cron_end_at &gt;= NOW()
+        AND menu.status = 1
+        AND menu.menu_type IN (1, #{menuType})
+        AND menu.tenant_id = #{tenantId}
+        AND menu.is_deleted = 0
+        AND branch_menu_r.branch_id = #{branchId};
+    </select>
+
+    <select id="listCornerGoodsInfos" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        goods.id,
+        goods.goods_name,
+        goods.category_id,
+        goods.category_name,
+        goods.goods_type,
+        goods.photo,
+        goods.is_newgood,
+        goods.is_recommended,
+        goods.goods_status,
+        goods.parent_id,
+        goods.standard_name,
+        goods.box_price,
+        menu_goods.sale_price AS sale_price,
+        menu_goods.vip_price AS vip_price,
+        menu_goods.vip_price2 AS vip_price2,
+        goods.is_dsc
+        FROM menu
+        INNER JOIN branch_menu_r ON menu.id = branch_menu_r.menu_id
+        INNER JOIN menu_goods ON menu_goods.menu_id = menu.id
+        INNER JOIN goods ON goods.id = menu_goods.goods_id
+        WHERE menu.tenant_id = #{tenantId}
+        AND branch_menu_r.branch_id = #{branchId}
+        AND menu.id = #{menuId}
+        AND menu.is_deleted = 0
+        AND (goods.is_newgood = 1 OR goods.is_recommended = 1)
+        AND goods.goods_status = 0
+    </select>
+
+    <select id="listGoodsInfos" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        goods.id,
+        goods.goods_name,
+        goods.category_id,
+        goods.category_name,
+        goods.goods_type,
+        goods.photo,
+        goods.is_newgood,
+        goods.is_recommended,
+        goods.goods_status,
+        goods.parent_id,
+        goods.standard_name,
+        goods.box_price,
+        menu_goods.sale_price AS sale_price,
+        menu_goods.vip_price AS vip_price,
+        menu_goods.vip_price2 AS vip_price2,
+        goods.is_dsc
+        FROM menu
+        INNER JOIN branch_menu_r ON menu.id = branch_menu_r.menu_id
+        INNER JOIN menu_goods ON menu_goods.menu_id = menu.id
+        INNER JOIN goods ON goods.id = menu_goods.goods_id
+        WHERE menu.tenant_id = #{tenantId}
+        AND branch_menu_r.branch_id = #{branchId}
+        AND menu.id = #{menuId}
+        <if test="@org.apache.commons.collections.CollectionUtils@isNotEmpty(goodsIds)">
+            AND goods.id IN
+            <foreach collection="goodsIds" index="index" item="goodsId" open="(" separator="," close=")">
+                #{goodsId}
+            </foreach>
+        </if>
+        AND menu.is_deleted = 0
+        AND goods.goods_status = 0
+    </select>
+
+    <select id="findPackageInfos" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        goods.*,
+        group_goods.quantity,
+        package_group.id AS package_group_id
+        FROM package_group
+        INNER JOIN group_goods ON group_goods.group_id = package_group.id AND group_goods.is_deleted = 0
+        INNER JOIN goods ON goods.id = group_goods.goods_id AND goods.is_deleted = 0
+        WHERE package_group.package_id IN
+        <foreach collection="packageIds" index="index" item="packageId" open="(" separator="," close=")">
+            #{packageId}
+        </foreach>
+        AND package_group.is_deleted = 0
+    </select>
+    
+    <select id="findPackageGroups" resultType="erp.chain.domain.PackageGroup">
+        SELECT * FROM package_group WHERE package_id IN
+        <foreach collection="packageIds" index="index" item="packageId" open="(" separator="," close=")">
+            #{packageId}
+        </foreach>
+        AND is_deleted = 0
+    </select>
+
+    <select id="findPackageGroupInfos" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        goods.*,
+        group_goods.quantity,
+        package_group.package_id,
+        package_group.id AS package_group_id,
+        package_group.is_main,
+        package_group.group_name
+        FROM package_group
+        INNER JOIN group_goods ON group_goods.group_id = package_group.id AND group_goods.is_deleted = 0
+        INNER JOIN goods ON goods.id = group_goods.goods_id AND goods.is_deleted = 0
+        WHERE package_group.package_id IN
+        <foreach collection="packageIds" index="index" item="packageId" open="(" separator="," close=")">
+            #{packageId}
+        </foreach>
+        AND package_group.is_deleted = 0
+    </select>
+
+    <select id="findGoodsInfo" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        goods.id,
+        goods.goods_name,
+        goods.category_id,
+        goods.category_name,
+        goods.goods_type,
+        goods.photo,
+        goods.is_newgood,
+        goods.is_recommended,
+        goods.goods_status,
+        goods.parent_id,
+        goods.standard_name,
+        goods.box_price,
+        menu_goods.sale_price AS sale_price,
+        menu_goods.vip_price AS vip_price,
+        menu_goods.vip_price2 AS vip_price2,
+        goods.goods_status
+        FROM menu
+        INNER JOIN branch_menu_r ON menu.id = branch_menu_r.menu_id
+        INNER JOIN menu_goods ON menu_goods.menu_id = menu.id
+        INNER JOIN goods ON goods.id = menu_goods.goods_id
+        <if test="isUseHqGoods == 1">
+            AND goods.branch_id = #{branchId}
+        </if>
+        <if test="isUseHqGoods == 0">
+            AND goods.branch_id IN (#{branchId}, #{headquartersBranchId})
+        </if>
+        WHERE menu.tenant_id = #{tenantId}
+        AND branch_menu_r.branch_id = #{branchId}
+        AND menu.id = #{menuId}
+        AND menu.is_deleted = 0
+        AND goods.goods_status = 0
+        <if test="barCode != null">
+            AND goods.bar_code = #{barCode}
+        </if>
+        <if test="weighPlu != null">
+            AND goods.weigh_plu = #{weighPlu}
+        </if>
+    </select>
+
+    <select id="findAllGoodsInfos" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        goods.id,
+        goods.goods_name,
+        goods.category_id,
+        goods.category_name,
+        goods.goods_type,
+        goods.photo,
+        goods.is_newgood,
+        goods.is_recommended,
+        goods.goods_status,
+        goods.parent_id,
+        goods.standard_name,
+        goods.box_price,
+        menu_goods.sale_price AS sale_price,
+        menu_goods.vip_price AS vip_price,
+        menu_goods.vip_price2 AS vip_price2,
+        goods.goods_status
+        FROM menu
+        INNER JOIN branch_menu_r ON menu.id = branch_menu_r.menu_id
+        INNER JOIN menu_goods ON menu_goods.menu_id = menu.id
+        INNER JOIN goods ON goods.id = menu_goods.goods_id
+        <if test="isUseHqGoods == 1">
+            AND goods.branch_id = #{branchId}
+        </if>
+        <if test="isUseHqGoods == 0">
+            AND goods.branch_id IN (#{branchId}, #{headquartersBranchId})
+        </if>
+        WHERE menu.tenant_id = #{tenantId}
+        AND branch_menu_r.branch_id = #{branchId}
+        AND menu.id = #{menuId}
+        AND menu.is_deleted = 0
+        AND goods.goods_status = 0
+        <if test="barCode != null">
+            AND goods.bar_code = #{barCode}
+        </if>
+        <if test="weighPlu != null">
+            AND goods.weigh_plu = #{weighPlu}
+        </if>
+        <if test="goodsName != null">
+            AND goods.goods_name = #{goodsName}
+        </if>
+    </select>
+</mapper>

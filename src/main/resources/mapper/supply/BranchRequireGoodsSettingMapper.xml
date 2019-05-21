@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.supply.BranchRequireGoodsSettingMapper">
+    <!-- mysql 分页头 -->
+    <sql id="pagination_Head">
+        <![CDATA[ select row_.* from ( ]]>
+    </sql>
+    <!-- mysql 分页尾 -->
+    <sql id="pagination_Tail">
+        <![CDATA[ ) row_ LIMIT #{pager.firstPage},#{pager.lastPage} ]]>
+    </sql>
+    <!-- count * from -->
+    <sql id="count_Start_Head">
+        <![CDATA[ select count(*) count from ( ]]>
+    </sql>
+    <sql id="count_Start_Tail">
+        <![CDATA[ ) t ]]>
+    </sql>
+    <sql id="order_head">
+        <![CDATA[ SELECT order_.* from ( ]]>
+    </sql>
+    <sql id="order_by">
+        <![CDATA[ ) order_ ]]>
+        <if test="pager.orderProperty != null and pager.order != null">
+            ORDER BY ${pager.orderProperty} ${pager.order}
+        </if>
+    </sql>
+
+    <sql id="column_branchRequireGoodsSetting">
+        SELECT
+         branchRequireGoodsSetting_.id,
+         branchRequireGoodsSetting_.tenant_id,
+         branchRequireGoodsSetting_.distribution_center_id,
+         branchRequireGoodsSetting_.branch_id,
+         branchRequireGoodsSetting_.goods_id,
+         branchRequireGoodsSetting_.shipping_price,
+         branchRequireGoodsSetting_.version
+    </sql>
+
+    <sql id="select_table">
+        FROM branch_require_goods_setting branchRequireGoodsSetting_
+        WHERE branchRequireGoodsSetting_.is_deleted = 0
+    </sql>
+
+    <sql id="term_branchRequireGoodsSetting">
+        <if test="tenantId != null">
+            AND branchRequireGoodsSetting_.tenant_id = ${tenantId}
+        </if>
+        <if test="distributionCenterId != null">
+            AND branchRequireGoodsSetting_.distribution_center_id = #{distributionCenterId}
+        </if>
+        <if test="branchId != null">
+            AND branchRequireGoodsSetting_.branch_id = #{branchId}
+        </if>
+        <if test="branchIdsArray != null" >
+            <foreach collection="branchIdsArray" item="item" open="and ( " close=" )" separator=" or">
+                 branchRequireGoodsSetting_.branch_id = #{item}
+            </foreach>
+        </if>
+        <if test="branchCodeOrNameLike != null">
+            AND (b.code like #{branchCodeOrNameLike} or b.name like #{branchCodeOrNameLike})
+        </if>
+        <if test="onlySelf == 1">
+            AND g.branch_id = #{branchId}
+        </if>
+    </sql>
+    <sql id="model_table">
+        ,g.category_name
+        ,g.goods_code
+        ,g.bar_code
+        ,IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name
+        ,branchRequireGoodsSetting_.create_at
+        FROM branch_require_goods_setting branchRequireGoodsSetting_
+        INNER JOIN branch b ON branchRequireGoodsSetting_.branch_id = b.id
+        INNER JOIN goods g ON branchRequireGoodsSetting_.goods_id = g.id
+        WHERE branchRequireGoodsSetting_.is_deleted = 0
+    </sql>
+
+    <!-- 分页查询- -->
+    <select id="queryPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="column_branchRequireGoodsSetting"/>
+        <include refid="model_table"/>
+        <include refid="term_branchRequireGoodsSetting"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+
+    <!-- List查询- -->
+    <select id="queryList" resultType="branchRequireGoodsSetting">
+        <include refid="order_head"/>
+        <include refid="column_branchRequireGoodsSetting"/>
+        <include refid="model_table"/>
+        <include refid="term_branchRequireGoodsSetting"/>
+        <include refid="order_by"/>
+    </select>
+
+    <!-- 统计查询- -->
+    <select id="queryCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="column_branchRequireGoodsSetting"/>
+        <include refid="model_table"/>
+        <include refid="term_branchRequireGoodsSetting"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+
+    <!-- id查询- -->
+    <select id="get" resultType="branchRequireGoodsSetting">
+        <include refid="column_branchRequireGoodsSetting"/>
+        <include refid="select_table"/>
+        AND branchRequireGoodsSetting_.id = #{id}
+    </select>
+
+    <select id="getInfo" resultType="mapUnderscoreToCamelCase">
+        <include refid="column_branchRequireGoodsSetting"/>
+        <include refid="model_table"/>
+        and branchRequireGoodsSetting_.id = #{id}
+    </select>
+
+        <!-- id删除- -->
+    <update id="delete">
+        UPDATE branch_require_goods_setting set is_deleted = 1,last_update_by=#{empId}
+        ,last_update_at=now(),version=next_version(version)
+        WHERE id=#{id}
+    </update>
+
+    <!-- id更新- -->
+    <update id="updatePrice">
+        UPDATE branch_require_goods_setting set
+          shipping_price=#{price},
+          last_update_at=now(),
+          last_update_by=#{empId},
+          version=next_version(version)
+        WHERE id=#{id}
+    </update>
+
+    <!-- 批量保存- -->
+    <insert id="saveList" useGeneratedKeys="true">
+        insert into branch_require_goods_setting (tenant_id,distribution_center_id,branch_id,goods_id,shipping_price,
+                           create_at,create_by,last_update_at,last_update_by,is_deleted)
+        <if test="list.size() == 1">
+            value
+        </if>
+        <if test="list.size() > 1">
+            values
+        </if>
+        <foreach item="item" collection="list" separator=",">
+            (#{item.tenantId},#{item.distributionCenterId},#{item.branchId},#{item.goodsId},#{item.shippingPrice},
+            #{item.createAt},#{item.createBy},#{item.lastUpdateAt},#{item.lastUpdateBy},0)
+        </foreach>
+    </insert>
+
+    <select id="countDetail" resultType="Long">
+        SELECT count(*) FROM branch_require_goods_setting WHERE is_deleted=0
+        AND branch_id=#{branchId} AND goods_id=#{goodsId} AND distribution_center_id =#{distributionCenterId}
+        AND tenant_id=${tenantId}
+    </select>
+    <select id="findAllByGoodsIdInListAndBranchIdAndTenantIdAndDistributionCenterId" resultType="branchRequireGoodsSetting">
+        SELECT * FROM branch_require_goods_setting WHERE goods_id IN
+        <foreach collection="goodsIds" item="goodsId" index="index" open="(" separator="," close=")">
+            #{goodsId}
+        </foreach>
+        AND branch_id = #{branchId}
+        AND tenant_id = ${tenantId}
+        AND distribution_center_id = #{distributionCenterId}
+        AND is_deleted = 0
+    </select>
+</mapper>

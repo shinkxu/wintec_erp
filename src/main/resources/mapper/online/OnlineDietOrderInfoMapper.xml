@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.OnlineDietOrderInfoMapper">
+    <insert id="insert" parameterType="erp.chain.domain.online.OnlineDietOrderInfo" useGeneratedKeys="true" keyProperty="id">
+        ${@erp.chain.utils.DatabaseUtils@generateInsertSql("erp.chain.domain.online.OnlineDietOrderInfo", "diet_order_info")}
+    </insert>
+
+    <update id="update" parameterType="erp.chain.domain.online.OnlineDietOrderInfo">
+        ${@erp.chain.utils.DatabaseUtils@generateUpdateSql("erp.chain.domain.online.OnlineDietOrderInfo", "diet_order_info")}
+    </update>
+
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineDietOrderInfo">
+        SELECT * FROM diet_order_info <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="findAll" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineDietOrderInfo">
+        SELECT * FROM diet_order_info <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="count" parameterType="erp.chain.utils.SearchModel" resultType="java.lang.Long">
+        SELECT COUNT(1) FROM diet_order_info <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="findAllPaged" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineDietOrderInfo">
+        SELECT * FROM diet_order_info <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include> <include refid="erp.chain.mapper.UniversalMapper.paginationSql"></include>
+    </select>
+</mapper>

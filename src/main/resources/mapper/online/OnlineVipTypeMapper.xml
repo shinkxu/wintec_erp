@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.OnlineVipTypeMapper">
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineVipType">
+        SELECT * FROM vip_type <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+</mapper>

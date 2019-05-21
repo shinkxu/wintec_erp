@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.system.WebServiceTenantMonitorMapper">
+    <select id="branchCount" resultType="Integer">
+        SELECT count(*) FROM branch WHERE is_deleted=0
+        <if test="tenantType=='1'">
+            AND tenant_id NOT IN (SELECT tenant_id FROM test_tenant_ids)
+        </if>
+        <if test="tenantType=='2'">
+            AND tenant_id IN (SELECT tenant_id FROM test_tenant_ids)
+        </if>
+    </select>
+    <select id="branchCountCondition" resultType="Integer">
+        SELECT COUNT(*) FROM branch WHERE create_at &gt;= '${startDate}' AND create_at &lt;= '${endDate}'
+        <if test="tenantType=='1'">
+            AND tenant_id NOT IN (SELECT tenant_id FROM test_tenant_ids)
+        </if>
+        <if test="tenantType=='2'">
+            AND tenant_id IN (SELECT tenant_id FROM test_tenant_ids)
+        </if>
+        AND is_deleted=0
+    </select>
+    <insert id="markTestTenant">
+        INSERT INTO test_tenant_ids(id,tenant_id) VALUES (null,${tenantId})
+    </insert>
+    <select id="queryBranchCount" resultType="mapUnderscoreToCamelCase">
+        SELECT tenant_id, COUNT(*) branch_count FROM branch WHERE tenant_id IN (${tenantIds})
+         AND is_deleted = 0 GROUP BY tenant_id
+    </select>
+</mapper>

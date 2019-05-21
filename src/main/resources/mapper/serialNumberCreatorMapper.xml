@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="erp.chain.mapper.SerialNumberCreatorMapper">
+
+    <select id="getToday" resultType="java.lang.String">
+        SELECT
+        LPAD(NEXTVAL_TODAY (#{prefix}), #{length},'0')
+    </select>
+    <select id="getBranchToday" resultType="java.lang.String">
+        SELECT
+        CONCAT(code,LPAD(NEXTVAL_TODAY (#{prefix}), #{length},'0'))
+        from branch
+        where id = #{bId}
+    </select>
+    <select id="getNextVal" resultType="java.lang.String">
+        SELECT NEXTVAL_UP(#{prefix},#{size})
+    </select>
+</mapper>

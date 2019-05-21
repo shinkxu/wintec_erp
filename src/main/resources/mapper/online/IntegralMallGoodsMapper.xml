@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.IntegralMallGoodsMapper">
+    <select id="findAll" resultType="erp.chain.domain.online.IntegralMallGoods">
+        SELECT
+        shop_goods.*,
+        IFNULL(vip_exchange_history.exchange_quantity, 0) AS exchange_quantity
+        FROM shop_goods
+        LEFT OUTER JOIN vip_exchange_history ON vip_exchange_history.tenant_id = shop_goods.tenant_id AND vip_exchange_history.branch_id = shop_goods.branch_id AND vip_exchange_history.goods_id = shop_goods.goods_id AND vip_id = #{vipId} AND vip_exchange_history.is_deleted = 0
+        WHERE shop_goods.tenant_id = #{tenantId}
+        AND shop_goods.branch_id = #{branchId}
+        AND shop_goods.is_deleted = 0
+        AND shop_goods.end_date >= NOW()
+        AND shop_goods.goods_status = 0
+        AND (CASE shop_goods.date_type
+        WHEN 1 THEN shop_goods.start_date &lt;= DATE_ADD(NOW(), INTERVAL shop_goods.effect_date DAY)
+        WHEN 2 THEN shop_goods.start_date &lt;= DATE_ADD(NOW(), INTERVAL shop_goods.effect_date HOUR)
+        WHEN 3 THEN shop_goods.start_date &lt;= DATE_ADD(NOW(), INTERVAL shop_goods.effect_date MINUTE) END)
+        ORDER BY shop_goods.start_date DESC
+    </select>
+
+    <select id="find" resultType="erp.chain.domain.online.IntegralMallGoods">
+        SELECT
+        shop_goods.*,
+        IFNULL(vip_exchange_history.exchange_quantity, 0) AS exchange_quantity
+        FROM shop_goods
+        LEFT OUTER JOIN vip_exchange_history ON vip_exchange_history.tenant_id = shop_goods.tenant_id AND vip_exchange_history.branch_id = shop_goods.branch_id AND vip_exchange_history.goods_id = shop_goods.goods_id AND vip_id = #{vipId} AND vip_exchange_history.is_deleted = 0
+        WHERE shop_goods.tenant_id = #{tenantId}
+        AND shop_goods.branch_id = #{branchId}
+        AND shop_goods.goods_id = #{goodsId}
+    </select>
+    
+    <update id="updateSurplusQuantity">
+        UPDATE shop_goods
+        SET surplus_quantity = surplus_quantity - #{quantity}
+        WHERE tenant_id = #{tenantId}
+        AND branch_id = #{branchId}
+        AND goods_id = #{goodsId}
+        AND is_deleted = 0
+    </update>
+
+    <update id="updateAlreadyChangeQuantity">
+        UPDATE shop_goods
+        SET already_change_quantity = already_change_quantity + #{quantity}
+        WHERE tenant_id = #{tenantId}
+        AND branch_id = #{branchId}
+        AND goods_id = #{goodsId}
+        AND is_deleted = 0
+    </update>
+    
+    <select id="obtainExchangeQuantity" resultType="java.math.BigDecimal">
+        SELECT
+        SUM(exchange_quantity) AS exchange_quantity
+        FROM vip_exchange_history
+        WHERE tenant_id = #{tenantId}
+        AND vip_id = #{vipId}
+        AND is_deleted = 0;
+    </select>
+
+    <select id="listOrders" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        diet_order_info.id,
+        diet_order_info.create_at,
+        diet_order_info.order_code,
+        diet_order_detail.goods_name,
+        diet_order_info.amount,
+        diet_order_info.use_score,
+        diet_order_info.order_mode,
+        diet_order_info.order_status
+        FROM diet_order_info
+        INNER JOIN diet_order_detail ON diet_order_detail.diet_order_info_id = diet_order_info.id AND diet_order_detail.is_deleted = 0
+        WHERE diet_order_info.is_deleted = 0
+        AND diet_order_info.tenant_id = #{tenantId}
+        <if test="orderMode == null">
+            AND diet_order_info.order_mode IN (9, 10)
+        </if>
+        <if test="orderMode != null">
+            AND diet_order_info.order_mode = #{orderMode}
+        </if>
+        <if test="orderStatus != null">
+            AND diet_order_info.order_status = #{orderStatus}
+        </if>
+        <if test="startDate != null">
+            AND diet_order_info.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND diet_order_info.create_at &lt;= #{endDate}
+        </if>
+        <if test="orderCode != null">
+            AND diet_order_info.order_code LIKE '%${orderCode}%'
+        </if>
+        ORDER BY diet_order_info.create_at DESC
+        LIMIT #{offset}, #{maxResults}
+    </select>
+
+    <select id="listOrdersCount" resultType="java.lang.Long">
+        SELECT COUNT(1)
+        FROM diet_order_info
+        INNER JOIN diet_order_detail ON diet_order_detail.diet_order_info_id = diet_order_info.id AND diet_order_detail.is_deleted = 0
+        WHERE diet_order_info.is_deleted = 0
+        AND diet_order_info.tenant_id = #{tenantId}
+        <if test="orderMode == null">
+            AND diet_order_info.order_mode IN (9, 10)
+        </if>
+        <if test="orderMode != null">
+            AND diet_order_info.order_mode = #{orderMode}
+        </if>
+        <if test="orderStatus != null">
+            AND diet_order_info.order_status = #{orderStatus}
+        </if>
+        <if test="startDate != null">
+            AND diet_order_info.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND diet_order_info.create_at &lt;= #{endDate}
+        </if>
+        <if test="orderCode != null">
+            AND diet_order_info.order_code LIKE '%${orderCode}%'
+        </if>
+    </select>
+
+    <select id="settingGoodsListCount" resultType="java.lang.Integer">
+        SELECT count(1) FROM shop_goods WHERE tenant_id = #{tenantId} AND is_deleted = 0 AND is_ticket = #{isTicket}
+        <if test="startDate != null and endDate != null">
+            AND ((start_date &gt;= #{startDate} AND start_date &lt;= #{endDate}) OR (end_date &gt;= #{startDate} AND end_date &lt;= #{endDate}))
+        </if>
+    </select>
+
+    <select id="settingGoodsList" resultType="erp.chain.domain.ShopGoods">
+        SELECT * FROM shop_goods WHERE tenant_id = #{tenantId} AND is_deleted = 0 AND is_ticket = #{isTicket}
+        <if test="startDate != null and endDate != null">
+            AND ((start_date &gt;= #{startDate} AND start_date &lt;= #{endDate}) OR (end_date &gt;= #{startDate} AND end_date &lt;= #{endDate}))
+        </if>
+        ORDER BY create_at DESC
+    </select>
+
+    <update id="updateGoodsSetting">
+        UPDATE shop_goods SET change_quantity = #{changeQuantity}, surplus_quantity = #{surplusQuantity}, last_update_at = NOW() WHERE tenant_id = #{tenantId} AND id = #{id}
+    </update>
+</mapper>

@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.system.AdvertisementMapper">
+    <select id="listAdBanner" resultType="erp.chain.domain.system.AdBanner">
+        SELECT * FROM ad_banner
+        WHERE tenant_id=#{tenantId} AND branch_id=#{branchId} AND is_deleted=0
+        <if test="active!=null">
+            AND active=#{active}
+        </if>
+        <if test="offset!=null and rows!=null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="listAdContent" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        adc.*, adb. NAME banner_name,e.name created_by_name
+        FROM
+        ad_content adc
+        INNER JOIN ad_banner adb ON adc.banner_id = adb.id
+        AND adb.is_deleted = 0
+        LEFT JOIN employee e ON e.id=adc.created_by
+        WHERE
+        adc.tenant_id =#{tenantId}
+        AND adc.branch_id = #{branchId}
+        AND adc.is_deleted = 0
+        <if test="queryStr!=null and queryStr!=''">
+            AND (adc.name like '%${queryStr}%' OR adc.sort_code like '%${queryStr}%')
+        </if>
+        <if test="mediaType!=null and mediaType!=''">
+            AND adc.media_type=#{mediaType}
+        </if>
+        <if test="useDate!=null and useDate!=''">
+            AND adc.begin_date &lt;= '${useDate}:59'
+            AND adc.end_date &gt;= '${useDate}:59'
+        </if>
+        <if test="order==null and field==null">
+            ORDER BY adc.created_at DESC
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY adc.${field} ${order}
+        </if>
+        <if test="offset!=null and rows!=null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="findBannerById" resultType="erp.chain.domain.system.AdBanner">
+        SELECT * FROM ad_banner
+        WHERE id=#{bannerId} AND tenant_id=#{tenantId} AND branch_id=#{branchId} AND is_deleted=0
+    </select>
+    <select id="findContentById" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        adc.*, adb. NAME banner_name
+        FROM
+        ad_content adc
+        INNER JOIN ad_banner adb ON adc.banner_id = adb.id
+        AND adb.is_deleted = 0
+        WHERE
+        adc.tenant_id =#{tenantId}
+        AND adc.branch_id = #{branchId}
+        AND adc.is_deleted = 0
+        AND adc.id=#{contentId}
+    </select>
+    <select id="findContent" resultType="erp.chain.domain.system.AdContent">
+        SELECT
+        adc.*
+        FROM
+        ad_content adc
+        WHERE
+        adc.tenant_id =#{tenantId}
+        AND adc.branch_id = #{branchId}
+        AND adc.is_deleted = 0
+        AND adc.id=#{contentId}
+    </select>
+    <select id="countListAdBanner" resultType="long">
+        SELECT count(1) FROM ad_banner
+        WHERE tenant_id=#{tenantId} AND branch_id=#{branchId} AND is_deleted=0
+        <if test="active!=null">
+            AND active=#{active}
+        </if>
+    </select>
+    <select id="countListAdContent" resultType="long">
+        SELECT count(1) FROM ad_content
+        WHERE tenant_id=#{tenantId} AND branch_id=#{branchId} AND is_deleted=0
+        <if test="queryStr!=null and queryStr!=''">
+            AND (name like '%${queryStr}%' OR sort_code like '%${queryStr}%')
+        </if>
+        <if test="mediaType!=null and mediaType!=''">
+            AND media_type=#{mediaType}
+        </if>
+        <if test="useDate!=null and useDate!=''">
+            AND begin_date &lt;= '${useDate}:59'
+            AND end_date &gt;= '${useDate}:59'
+        </if>
+    </select>
+    <select id="countAdContentListByBannerId" resultType="long">
+        SELECT count(1)count FROM ad_content
+        WHERE banner_id=#{bannerId} AND tenant_id=#{tenantId} AND is_deleted=0
+    </select>
+    <update id="deleteBanner">
+        UPDATE ad_banner SET updated_by=#{empId},updated_at=CURRENT_TIMESTAMP,is_deleted=1
+        WHERE tenant_id=#{tenantId}
+        AND branch_id=#{branchId}
+        AND is_deleted=0
+        AND id=#{bannerId}
+    </update>
+    <update id="deleteContent">
+        UPDATE ad_content SET updated_by=#{empId},updated_at=CURRENT_TIMESTAMP,is_deleted=1
+        WHERE tenant_id=#{tenantId}
+        AND branch_id=#{branchId}
+        AND is_deleted=0
+        AND id=#{contentId}
+    </update>
+    <insert id="insertBanner" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ad_banner
+        (
+        is_deleted,
+        created_by,
+        updated_by,
+        created_at,
+        updated_at,
+        tenant_id,
+        branch_id,
+        name,
+        description,
+        banner_type,
+        display_mode,
+        width,
+        height,
+        active,
+        sort_code
+        )
+        VALUES
+        (
+        #{isDeleted},
+        #{createdBy},
+        #{updatedBy},
+        #{createdAt},
+        #{updatedAt},
+        #{tenantId},
+        #{branchId},
+        #{name},
+        #{description},
+        #{bannerType},
+        #{displayMode},
+        #{width},
+        #{height},
+        #{active},
+        #{sortCode}
+        )
+    </insert>
+    <update id="updateBanner">
+        UPDATE ad_banner
+        <set>
+            updated_at = CURRENT_TIMESTAMP,
+            <if test="updatedBy != null">
+                updated_by = #{updatedBy},
+            </if>
+            <if test="tenantId != null">
+                tenant_id = #{tenantId},
+            </if>
+            <if test="branchId != null">
+                branch_id = #{branchId},
+            </if>
+            <if test="name != null">
+                name = #{name},
+            </if>
+            <if test="description != null">
+                description = #{description},
+            </if>
+            <if test="bannerType != null">
+                banner_type = #{bannerType},
+            </if>
+            <if test="displayMode != null">
+                display_mode = #{displayMode},
+            </if>
+            <if test="width != null">
+                width = #{width},
+            </if>
+            <if test="height != null">
+                height = #{height},
+            </if>
+            <if test="active != null">
+                active = #{active},
+            </if>
+            <if test="sortCode != null">
+                sort_code = #{sortCode},
+            </if>
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+    <insert id="insertContent" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ad_content
+        (
+        is_deleted,
+        created_by,
+        updated_by,
+        created_at,
+        updated_at,
+        tenant_id,
+        branch_id,
+        banner_id,
+        name,
+        media_type,
+        content,
+        resource_url,
+        jumpto_url,
+        begin_date,
+        end_date,
+        plays,
+        hits,
+        sort_code
+        )
+        VALUES
+        (
+        #{isDeleted},
+        #{createdBy},
+        #{updatedBy},
+        #{createdAt},
+        #{updatedAt},
+        #{tenantId},
+        #{branchId},
+        #{bannerId},
+        #{name},
+        #{mediaType},
+        #{content},
+        #{resourceUrl},
+        #{jumptoUrl},
+        #{beginDate},
+        #{endDate},
+        #{plays},
+        #{hits},
+        #{sortCode}
+        )
+    </insert>
+    <update id="updateContent">
+        UPDATE ad_content
+        <set>
+            updated_at = CURRENT_TIMESTAMP,
+            <if test="updatedBy != null">
+                updated_by = #{updatedBy},
+            </if>
+            <if test="tenantId != null">
+                tenant_id = #{tenantId},
+            </if>
+            <if test="branchId != null">
+                branch_id = #{branchId},
+            </if>
+            <if test="bannerId != null">
+                banner_id = #{bannerId},
+            </if>
+            <if test="name != null">
+                name = #{name},
+            </if>
+            <if test="mediaType != null">
+                media_type = #{mediaType},
+            </if>
+            <if test="content != null">
+                content = #{content},
+            </if>
+            <if test="resourceUrl != null">
+                resource_url = #{resourceUrl},
+            </if>
+            <if test="jumptoUrl != null">
+                jumpto_url = #{jumptoUrl},
+            </if>
+            <if test="beginDate != null">
+                begin_date = #{beginDate},
+            </if>
+            <if test="endDate != null">
+                end_date = #{endDate},
+            </if>
+            <if test="plays != null">
+                plays = #{plays},
+            </if>
+            <if test="hits != null">
+                hits = #{hits},
+            </if>
+            <if test="sortCode != null">
+                sort_code = #{sortCode},
+            </if>
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+
+    <delete id="deleteContentBranchR">
+        DELETE FROM ad_content_branch_r WHERE ad_content_id=#{contentId} AND tenant_id=#{tenantId}
+    </delete>
+    <insert id="insertContentBranchR">
+        INSERT INTO ad_content_branch_r
+        (ad_content_id,branch_id,tenant_id)
+        VALUES
+        <foreach collection="branchIds" separator="," item="branchId">
+            (#{contentId},#{branchId},#{tenantId})
+        </foreach>
+    </insert>
+    <select id="contentBranchR" resultType="mapUnderscoreToCamelCase">
+        SELECT acbr.branch_id,b.name branch_name FROM ad_content_branch_r acbr INNER JOIN branch b ON b.id=acbr.branch_id AND b.tenant_id=acbr.tenant_id AND b.is_deleted=0
+        WHERE acbr.ad_content_id=#{contentId} AND acbr.tenant_id=#{tenantId}
+    </select>
+    <select id="loadBranchAdContent" resultType="mapUnderscoreToCamelCase">
+        SELECT acbr.branch_id use_branch_id,ac.* FROM ad_content_branch_r acbr
+        INNER JOIN ad_content ac ON acbr.ad_content_id=ac.id AND acbr.tenant_id=ac.tenant_id AND ac.is_deleted=0
+        WHERE acbr.tenant_id=#{tenantId} AND acbr.branch_id=#{branchId}
+    </select>
+</mapper>

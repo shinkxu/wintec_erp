@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.PlanMapper">
+    <select id="findAllPlanInfos" resultType="erp.chain.domain.online.Plan">
+        SELECT
+        plan.*
+        FROM plan
+        INNER JOIN vip_store_rule_details ON vip_store_rule_details.id = plan.rule_id AND vip_store_rule_details.is_deleted = 0 AND is_for_wechat = 1 AND IF(vip_store_rule_details.start_time IS NOT NULL, vip_store_rule_details.start_time &lt;= NOW(), 1 = 1) AND IF(vip_store_rule_details.end_time IS NOT NULL, vip_store_rule_details.end_time &gt;= NOW(), 1 = 1)
+        WHERE plan.tenant_id = #{tenantId}
+        AND plan.branch_id = #{branchId}
+        AND plan_group_id IN
+        <foreach collection="planGroupIds" index="index" item="planGroupId" open="(" separator="," close=")">
+            #{planGroupId}
+        </foreach>
+        AND plan.is_deleted = 0
+        AND plan.type = 1
+        UNION ALL
+        SELECT
+        plan.*
+        FROM plan
+        INNER JOIN card_type ON card_type.id = plan.card_type_id AND card_type.is_deleted = 0 AND IF(card_type.tm_interval_type = 3 AND card_type.start_time IS NOT NULL, card_type.start_time &lt;= NOW(), 1 = 1) AND IF(card_type.tm_interval_type = 3 AND card_type.end_time IS NOT NULL, card_type.end_time &gt;= NOW(), 1 = 1)
+        WHERE plan.tenant_id = #{tenantId}
+        AND plan.branch_id = #{branchId}
+        AND plan_group_id IN
+        <foreach collection="planGroupIds" index="index" item="planGroupId" open="(" separator="," close=")">
+            #{planGroupId}
+        </foreach>
+        AND plan.is_deleted = 0
+        AND plan.type = 2
+    </select>
+</mapper>

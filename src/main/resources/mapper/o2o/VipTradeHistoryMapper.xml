@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="erp.chain.mapper.o2o.VipTradeHistoryMapper">
+    <select id="vipTradeList" resultType="VipTradeHistory">
+        SELECT * FROM vip_trade_history vth LEFT JOIN vip v on vth.vip_id = v.id WHERE vth.is_deleted=0
+        <if test="vipId != null and vipId != ''">
+            AND vth.vip_id =#{vipId}
+        </if>
+        <if test="tenantId != null and tenantId != ''">
+            AND v.tenant_id =${tenantId}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND v.branch_id =#{branchId}
+        </if>
+        <if test="groups != null and groups != ''">
+            AND v.branch_id in (${groups})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND (vth.create_at >= #{startDate})
+        </if>
+        <if test="endDate != null and endDate != ''">
+            <![CDATA[
+              AND (vth.create_at <= #{endDate})
+              ]]>
+        </if>
+        <if test="storeBranchId != null and storeBranchId != ''">
+            AND vth.store_branch_id = #{storeBranchId}
+        </if>
+        <if test="offset != null and offset != '' and rows != null and rows != ''">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="findByCondition" resultType="VipTradeHistory">
+        SELECT * FROM vip_trade_history vth WHERE is_deleted=0
+        <if test="tenantId != null and tenantId != ''">
+            AND vth.tenant_id =#{tenantId}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND vth.trade_branch_id =#{branchId}
+        </if>
+        <if test="token != null and token != ''">
+            AND vth.token =#{token}
+        </if>
+        <if test="tradeNo != null and tradeNo != ''">
+            AND vth.trade_no =#{tradeNo}
+        </if>
+        <if test="tradeType != null and tradeType != ''">
+            AND vth.trade_type =#{tradeType}
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vth.vip_id =#{vipId}
+        </if>
+    </select>
+    <select id="findListByCondition" resultType="VipTradeHistory">
+        SELECT * FROM vip_trade_history vth WHERE is_deleted=0
+        <if test="tenantId != null and tenantId != ''">
+            AND vth.tenant_id =#{tenantId}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND vth.trade_branch_id =#{branchId}
+        </if>
+        <if test="token != null and token != ''">
+            AND vth.token =#{token}
+        </if>
+        <if test="tradeNo != null and tradeNo != ''">
+            AND vth.trade_no =#{tradeNo}
+        </if>
+        <if test="tradeType != null and tradeType != ''">
+            AND vth.trade_type =#{tradeType}
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vth.vip_id =#{vipId}
+        </if>
+    </select>
+    <insert id="insert" parameterType="VipTradeHistory" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO vip_trade_history (id,vip_id,trade_no,trade_type,trade_amount,
+    use_integral,integral_amount,use_coupon_code,use_coupon_amount,
+    pay_amount,trade_branch_id,trade_branch_name,
+    trade_date,trade_user_id,trade_user_name,
+    create_by,create_at,last_update_by,last_update_at,
+    is_deleted,used_for_redpaper,add_score,
+    version,token,tenant_id,order_code,payment_id)
+    VALUES
+    (#{id,jdbcType=BIGINT},#{vipId, jdbcType=VARCHAR},#{tradeNo,jdbcType=VARCHAR},#{tradeType, jdbcType=VARCHAR},#{tradeAmount, jdbcType=DECIMAL},
+    #{useIntegral, jdbcType=BIGINT},#{integralAmount, jdbcType=DECIMAL},#{useCouponCode, jdbcType=VARCHAR},#{useCouponAmount, jdbcType=DECIMAL},
+    #{payAmount,jdbcType=DECIMAL},#{tradeBranchId, jdbcType=BIGINT},#{tradeBranchName, jdbcType=VARCHAR},
+    #{tradeDate,jdbcType=TIMESTAMP},#{tradeUserId,jdbcType=BIGINT},#{tradeUserName,jdbcType=VARCHAR},
+    #{createBy,jdbcType=VARCHAR},#{createAt, jdbcType=TIMESTAMP},#{lastUpdateBy, jdbcType=VARCHAR},#{lastUpdateAt, jdbcType=TIMESTAMP},
+    0,#{usedForRedpaper,jdbcType=BIT},#{addScore,jdbcType=DECIMAL},
+    0,#{token, jdbcType=VARCHAR},#{tenantId,jdbcType=BIGINT},#{orderCode, jdbcType=VARCHAR},#{paymentId,jdbcType=BIGINT})
+    </insert>
+    <update id="update1" parameterType="VipTradeHistory">
+        UPDATE vip_trade_history
+        <set>
+            <if test="vipId != null" >
+                vip_id = #{vipId,jdbcType=VARCHAR},
+            </if>
+            <if test="tradeNo != null" >
+                trade_no = #{tradeNo,jdbcType=VARCHAR},
+            </if>
+            <if test="tradeType != null" >
+                trade_type = #{tradeType,jdbcType=VARCHAR},
+            </if>
+            <if test="tradeAmount != null" >
+                trade_amount = #{tradeAmount,jdbcType=DECIMAL},
+            </if>
+            <if test="useIntegral != null">
+                use_integral = #{useIntegral, jdbcType=BIGINT},
+            </if>
+            <if test="integralAmount != null" >
+                integral_amount = #{integralAmount,jdbcType=DECIMAL},
+            </if>
+            <if test="useCouponCode != null" >
+                use_coupon_code = #{useCouponCode,jdbcType=VARCHAR},
+            </if>
+            <if test="useCouponAmount != null" >
+                use_coupon_amount = #{useCouponAmount,jdbcType=DECIMAL},
+            </if>
+            <if test="payAmount != null" >
+                pay_amount = #{payAmount,jdbcType=DECIMAL},
+            </if>
+            <if test="tradeBranchId != null">
+                trade_branch_id = #{tradeBranchId, jdbcType=BIGINT},
+            </if>
+            <if test="tradeBranchName != null" >
+                trade_branch_name = #{tradeBranchName,jdbcType=VARCHAR},
+            </if>
+            <if test="tradeDate != null" >
+                trade_date = #{tradeDate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="createBy != null" >
+                create_by = #{createBy,jdbcType=VARCHAR},
+            </if>
+            <if test="createAt != null" >
+                create_at = #{createAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="lastUpdateBy != null" >
+                last_update_by = #{lastUpdateBy,jdbcType=VARCHAR},
+            </if>
+            <if test="lastUpdateAt != null" >
+                last_update_at = #{lastUpdateAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="isDeleted != null" >
+                is_deleted = #{isDeleted,jdbcType=BIT},
+            </if>
+            <if test="version != null" >
+                version = #{version,jdbcType=BIGINT},
+            </if>
+            <if test="addScore != null" >
+                add_score = #{addScore,jdbcType=DECIMAL},
+            </if>
+            <if test="token != null" >
+                token = #{token,jdbcType=VARCHAR},
+            </if>
+            <if test="tenantId != null" >
+                tenant_id = #{tenantId,jdbcType=VARCHAR},
+            </if>
+            <if test="orderCode != null" >
+                order_code = #{orderCode,jdbcType=VARCHAR},
+            </if>
+
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+    <update id="update" parameterType="map">
+        UPDATE vip_trade_history
+        <set>
+            <if test="vipId != null" >
+                vip_id = #{vipId,jdbcType=VARCHAR},
+            </if>
+            <if test="tradeNo != null" >
+                trade_no = #{tradeNo,jdbcType=VARCHAR},
+            </if>
+            <if test="tradeType != null" >
+                trade_type = #{tradeType,jdbcType=VARCHAR},
+            </if>
+            <if test="tradeAmount != null" >
+                trade_amount = #{tradeAmount,jdbcType=DECIMAL},
+            </if>
+            <if test="useIntegral != null">
+                use_integral = #{useIntegral, jdbcType=BIGINT},
+            </if>
+            <if test="integralAmount != null" >
+                integral_amount = #{integralAmount,jdbcType=DECIMAL},
+            </if>
+            <if test="useCouponCode != null" >
+                use_coupon_code = #{useCouponCode,jdbcType=VARCHAR},
+            </if>
+            <if test="useCouponAmount != null" >
+                use_coupon_amount = #{useCouponAmount,jdbcType=DECIMAL},
+            </if>
+            <if test="payAmount != null" >
+                pay_amount = #{payAmount,jdbcType=DECIMAL},
+            </if>
+            <if test="tradeBranchId != null">
+                trade_branch_id = #{tradeBranchId, jdbcType=BIGINT},
+            </if>
+            <if test="tradeBranchName != null" >
+                trade_branch_name = #{tradeBranchName,jdbcType=VARCHAR},
+            </if>
+            <if test="tradeDate != null" >
+                trade_date = #{tradeDate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="createBy != null" >
+                create_by = #{createBy,jdbcType=VARCHAR},
+            </if>
+            <if test="createAt != null" >
+                create_at = #{createAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="lastUpdateBy != null" >
+                last_update_by = #{lastUpdateBy,jdbcType=VARCHAR},
+            </if>
+            <if test="lastUpdateAt != null" >
+                last_update_at = #{lastUpdateAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="isDeleted != null" >
+                is_deleted = #{isDeleted,jdbcType=BIT},
+            </if>
+            <if test="version != null" >
+                version = #{version,jdbcType=BIGINT},
+            </if>
+            <if test="addScore != null" >
+                add_score = #{addScore,jdbcType=DECIMAL},
+            </if>
+            <if test="token != null" >
+                token = #{token,jdbcType=VARCHAR},
+            </if>
+            <if test="tenantId != null" >
+                tenant_id = #{tenantId,jdbcType=VARCHAR},
+            </if>
+            <if test="orderCode != null" >
+                order_code = #{orderCode,jdbcType=VARCHAR},
+            </if>
+
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+</mapper>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.DataAcquisitionMapper">
+    <delete id="deleteWithCover">
+        DELETE FROM ${tableName}
+        <where>
+            tenant_code = #{tenantCode}
+            <if test="timestamp != null">
+                AND (timestamp IS NULL OR timestamp != #{timestamp})
+            </if>
+        </where>
+    </delete>
+
+    <delete id="deleteByTypeIds">
+        DELETE FROM ${tableName}
+        <where>
+            tenant_code = #{tenantCode}
+            <if test="typeIds != null">
+                AND type_id IN
+                <foreach collection="typeIds" index="index" item="typeId" open="(" separator="," close=")">
+                    #{typeId}
+                </foreach>
+            </if>
+        </where>
+    </delete>
+
+    <insert id="insert">
+        <if test="tableName == 'daq_grasp_ptype' or tableName == 'daq_grasp_btype'">
+            INSERT INTO ${tableName} (tenant_code, type_id, full_name, timestamp)
+            VALUES
+            <foreach collection="dataList" index="index" item="data" separator=",">
+                (#{tenantCode}, #{data.typeId}, #{data.fullName}, #{timestamp})
+            </foreach>
+        </if>
+        <if test="tableName == 'daq_grasp_unit'">
+            INSERT INTO ${tableName} (tenant_code, type_id, unit_id, unit_name, unit_rate, timestamp)
+            VALUES
+            <foreach collection="dataList" index="index" item="data" separator=",">
+                <bind name="unitNameAndUnitRateArray" value="@org.apache.commons.lang.StringUtils@split(data.fullName, ',')"></bind>
+                <foreach collection="unitNameAndUnitRateArray" index="unitNameAndUnitRateIndex" item="unitNameAndUnitRateItem" separator=",">
+                    <bind name="unitNameAndUnitRate" value="@org.apache.commons.lang.StringUtils@split(unitNameAndUnitRateItem, '#')"></bind>
+                    (#{tenantCode}, #{data.typeId}, '${unitNameAndUnitRate[0]}' , '${unitNameAndUnitRate[1]}', '${unitNameAndUnitRate[2]}', #{timestamp})
+                </foreach>
+            </foreach>
+        </if>
+    </insert>
+
+    <update id="update">
+        UPDATE ${tableName} SET full_name = #{fullName}, timestamp = #{timestamp}
+        WHERE tenant_code = #{tenantCode}
+        AND type_id = #{typeId}
+    </update>
+</mapper>

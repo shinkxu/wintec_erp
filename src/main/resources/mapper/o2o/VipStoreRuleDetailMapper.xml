@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="erp.chain.mapper.o2o.VipStoreRuleDetailMapper">
+    <select id="vipStoreRuleDetailsList" resultType="VipStoreRuleDetails">
+        SELECT * FROM vip_store_rule_details WHERE is_deleted=0
+        <if test="branchId != null and branchId != ''">
+            AND branch_id = #{branchId}
+        </if>
+        <if test="tenantId != null and tenantId != ''">
+            AND tenant_id = ${tenantId}
+        </if>
+        <if test="ruleId != null and ruleId != ''">
+            AND rule_id = #{ruleId}
+        </if>
+        <if test="useForWechat != null and useForWechat == 'true'">
+            AND is_for_wechat = 1
+        </if>
+        <if test="pointedVipType != null and pointedVipType != ''">
+            AND (pointed_vip_type = #{pointedVipType} OR pointed_vip_type IS NULL)
+        </if>
+        <if test="offset != null and rows!=''" >
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="storeRuleDetailsList" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        vt.type_name,
+        vsrd.*, vsrd.is_for_wechat for_wechat,
+        vsrd.after_store_data card_id
+        FROM
+        vip_store_rule_details vsrd
+        LEFT JOIN vip_type vt ON vsrd.tenant_id = vt.tenant_id
+        AND vsrd.pointed_vip_type = vt.id
+        WHERE
+        vsrd.is_deleted = 0
+        <if test="branchId != null and branchId != ''">
+            AND vsrd.branch_id = #{branchId}
+        </if>
+        <if test="tenantId != null and tenantId != ''">
+            AND vsrd.tenant_id = ${tenantId}
+        </if>
+        <if test="ruleId != null and ruleId != ''">
+            AND vsrd.rule_id = #{ruleId}
+        </if>
+        ORDER BY vsrd.create_at DESC
+        <if test="offset != null and rows!=''" >
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="findByCondition" resultType="erp.chain.domain.o2o.VipStoreRuleDetails">
+        SELECT * FROM vip_store_rule_details WHERE is_deleted=0
+        <if test="tenantId != null and tenantId != ''">
+            AND tenant_id =${tenantId}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND branch_id =#{branchId}
+        </if>
+        <if test="ruleId != null and ruleId != ''">
+            AND rule_id =#{ruleId}
+        </if>
+        <if test="payLimit != null and payLimit != ''">
+            AND pay_limit = #{payLimit}
+        </if>
+        <if test="presentLimit != null and presentLimit != ''">
+            AND present_limit = #{presentLimit}
+        </if>
+        <if test="id != null and id != ''">
+            AND id =#{id}
+        </if>
+    </select>
+    <select id="findByCondition2" resultType="long">
+        SELECT count(*) FROM vip_store_rule_details WHERE is_deleted=0
+        <if test="tenantId != null and tenantId != ''">
+            AND tenant_id =${tenantId}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND branch_id =#{branchId}
+        </if>
+        <if test="ruleId != null and ruleId != ''">
+            AND rule_id =#{ruleId}
+        </if>
+        <if test="payLimit != null and payLimit != ''">
+            AND pay_limit = #{payLimit}
+        </if>
+        <if test="presentLimit != null and presentLimit != ''">
+            AND present_limit = #{presentLimit}
+        </if>
+        <if test="id != null and id != ''">
+            AND id !=#{id}
+        </if>
+        <if test="pointedVipType != null and pointedVipType != 0">
+            AND (pointed_vip_type =#{pointedVipType} or pointed_vip_type IS NULL)
+        </if>
+    </select>
+
+    <update id="update" parameterType="map" >
+        update vip_store_rule_details
+        <set >
+            <if test="ruleId != null" >
+                rule_id = #{ruleId,jdbcType=BIGINT},
+            </if>
+            <if test="tenantId != null" >
+                tenant_id = #{tenantId,jdbcType=BIGINT},
+            </if>
+            <if test="branchId != null" >
+                branch_id = #{branchId,jdbcType=BIGINT},
+            </if>
+            <if test="payLimit != null" >
+                pay_limit = #{payLimit,jdbcType=DECIMAL},
+            </if>
+            <if test="presentLimit != null" >
+                present_limit = #{presentLimit,jdbcType=DECIMAL},
+            </if>
+            <if test="createBy != null" >
+                create_by = #{createBy,jdbcType=VARCHAR},
+            </if>
+            <if test="createAt != null" >
+                create_at = #{createAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="lastUpdateBy != null" >
+                last_update_by = #{lastUpdateBy,jdbcType=VARCHAR},
+            </if>
+            <if test="lastUpdateAt != null" >
+                last_update_at = #{lastUpdateAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="isDeleted != null" >
+                is_deleted = #{isDeleted,jdbcType=BIT},
+            </if>
+            <if test="version != null" >
+                version = #{version,jdbcType=BIGINT},
+            </if>
+            <if test="localId != null" >
+                local_id = #{localId,jdbcType=BIGINT},
+            </if>
+            <if test="effectTimes != null" >
+                effect_times = #{effectTimes,jdbcType=BIGINT},
+            </if>
+            <if test="startTime != null" >
+                start_time = #{startTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="endTime != null" >
+                end_time = #{endTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="timeType == 1" >
+                end_time = null,start_time = null,
+            </if>
+            <if test="afterStoreType != null" >
+                after_store_type = #{afterStoreType,jdbcType=BIGINT},
+            </if>
+            <if test="afterStoreData != null" >
+                after_store_data = #{afterStoreData,jdbcType=BIGINT},
+            </if>
+            <if test="isForWechat != null" >
+                is_for_wechat = #{isForWechat,jdbcType=BIT},
+            </if>
+            <if test="pointedVipType != null and pointedVipType != 0" >
+                pointed_vip_type = #{pointedVipType,jdbcType=BIGINT},
+            </if>
+            <if test="pointedVipType == 0" >
+                pointed_vip_type = NULL,
+            </if>
+            <if test="afterStoreDataName != null" >
+                after_store_data_name = #{afterStoreDataName,jdbcType=VARCHAR},
+            </if>
+            <if test="pointedVipTypeName != null" >
+                pointed_vip_type_name = #{pointedVipTypeName,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+    <insert id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        insert into vip_store_rule_details (rule_id, tenant_id, branch_id,
+        pay_limit, present_limit,
+        create_by, create_at, last_update_by,
+        last_update_at, is_deleted,
+        version, local_id,
+        effect_times,start_time,end_time,
+        after_store_type,after_store_data,is_for_wechat,pointed_vip_type,
+        after_store_data_name,pointed_vip_type_name
+        )
+        values (#{ruleId,jdbcType=BIGINT}, #{tenantId,jdbcType=BIGINT}, #{branchId,jdbcType=BIGINT},
+        #{payLimit,jdbcType=DECIMAL}, #{presentLimit,jdbcType=DECIMAL},
+        #{createBy,jdbcType=VARCHAR}, #{createAt,jdbcType=TIMESTAMP}, #{lastUpdateBy,jdbcType=VARCHAR},
+        #{lastUpdateAt,jdbcType=TIMESTAMP}, #{isDeleted,jdbcType=BIT},
+        #{version,jdbcType=BIGINT}, #{localId,jdbcType=BIGINT},
+        #{effectTimes,jdbcType=BIGINT},#{startTime,jdbcType=TIMESTAMP},#{endTime,jdbcType=TIMESTAMP},
+        #{afterStoreType,jdbcType=BIGINT},#{afterStoreData,jdbcType=BIGINT}, #{isForWechat,jdbcType=BIT}, #{pointedVipType,jdbcType=BIGINT},
+        #{afterStoreDataName,jdbcType=VARCHAR},#{pointedVipTypeName,jdbcType=VARCHAR}
+        )
+    </insert>
+
+</mapper>

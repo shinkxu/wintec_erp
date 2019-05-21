@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.DietGameScratchCardHistoryMapper" >
+
+
+  <insert id="insert" parameterType="erp.chain.domain.DietGameScratchCardHistory" >
+    insert into diet_game_scratch_card_history (id, scratch_card_id,
+    vip_id,tenant_id,result_name,
+    result_item_id, create_by, create_at,
+    last_update_by, last_update_at, is_deleted)
+    values (#{id,jdbcType=INTEGER}, #{scratchCardId,jdbcType=BIGINT},
+    #{vipId,jdbcType=BIGINT},#{tenantId,jdbcType=BIGINT},#{resultName,jdbcType=VARCHAR},
+    #{resultItemId,jdbcType=VARCHAR},
+    #{createBy,jdbcType=VARCHAR}, #{createAt,jdbcType=TIMESTAMP}, #{lastUpdateBy,jdbcType=VARCHAR},#{lastUpdateAt,jdbcType=TIMESTAMP},
+    #{isDeleted,jdbcType=BIT})
+  </insert>
+
+</mapper>

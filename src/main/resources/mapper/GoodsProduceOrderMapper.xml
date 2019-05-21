@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.GoodsProduceOrderMapper">
+    <!-- mysql 分页头 -->
+    <sql id="pagination_Head">
+        <![CDATA[ select row_.* from ( ]]>
+    </sql>
+    <!-- mysql 分页尾 -->
+    <sql id="pagination_Tail">
+        <![CDATA[ ) row_ LIMIT #{pager.firstPage},#{pager.lastPage} ]]>
+    </sql>
+    <!-- count * from -->
+    <sql id="count_Start_Head">
+        <![CDATA[ select count(*) count from ( ]]>
+    </sql>
+    <sql id="count_Start_Tail">
+        <![CDATA[ ) t ]]>
+    </sql>
+    <sql id="order_head">
+        <![CDATA[ SELECT order_.* from ( ]]>
+    </sql>
+    <sql id="order_by">
+        <![CDATA[ ) order_ ]]>
+        <if test="pager.orderProperty != null and pager.order != null">
+            ORDER BY ${pager.orderProperty} ${pager.order}
+        </if>
+    </sql>
+
+    <sql id="column_goodsProduceOrder">
+        SELECT
+        goodsProduceOrder_.id,
+        goodsProduceOrder_.tenant_id,
+        goodsProduceOrder_.branch_id,
+        goodsProduceOrder_.code,
+        goodsProduceOrder_.goods_id,
+        goodsProduceOrder_.type,
+        goodsProduceOrder_.status,
+        goodsProduceOrder_.price,
+        goodsProduceOrder_.quantity,
+        goodsProduceOrder_.make_emp_id,
+        goodsProduceOrder_.audit_emp_id,
+        goodsProduceOrder_.make_at,
+        goodsProduceOrder_.audit_at,
+        goodsProduceOrder_.is_deleted,
+        goodsProduceOrder_.create_at,
+        goodsProduceOrder_.create_by,
+        goodsProduceOrder_.last_update_by,
+        goodsProduceOrder_.last_update_at,
+        goodsProduceOrder_.memo,
+        goodsProduceOrder_.version,
+        goodsProduceOrder_.local_id,
+        goodsProduceOrder_.is_update_price
+    </sql>
+
+    <sql id="select_table">
+        FROM goods_produce_order goodsProduceOrder_
+    </sql>
+    <sql id="select_pager">
+        SELECT
+        goodsProduceOrder_.id order_id,
+        goodsProduceOrder_.code,
+        goodsProduceOrder_.goods_id,
+        goodsProduceOrder_.type,
+        goodsProduceOrder_.status,
+        goodsProduceOrder_.price,
+        goodsProduceOrder_.quantity,
+        goodsProduceOrder_.make_emp_id,
+        goodsProduceOrder_.audit_emp_id,
+        goodsProduceOrder_.make_at,
+        goodsProduceOrder_.audit_at,
+        goodsProduceOrder_.version,
+        goodsProduceOrder_.branch_id,
+        goodsProduceOrder_.memo,
+        ae.name audit_emp_name,
+        e.name make_emp_name,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name,
+        g.goods_code,
+        bh.name branch_name,
+        goodsProduceOrder_.is_update_price
+        <include refid="select_table"/>
+        INNER JOIN employee e
+        ON goodsProduceOrder_.make_emp_id = e.id
+        LEFT JOIN employee ae
+        ON goodsProduceOrder_.audit_emp_id = ae.id
+        INNER JOIN goods g ON goodsProduceOrder_.goods_id = g.id
+        LEFT JOIN branch bh ON goodsProduceOrder_.branch_id = bh.id
+    </sql>
+
+    <sql id="term_goodsProduceOrder">
+        WHERE goodsProduceOrder_.is_deleted = 0
+        <if test="code != null">
+            AND goodsProduceOrder_.code = #{code}
+        </if>
+        <if test="orderId != null">
+            AND goodsProduceOrder_.id = #{orderId}
+        </if>
+        <if test="codeLike != null">
+            AND goodsProduceOrder_.code like #{codeLike}
+        </if>
+        <if test="type != null">
+            AND goodsProduceOrder_.type = #{type}
+        </if>
+        <if test="status != null">
+            AND goodsProduceOrder_.status = #{status}
+        </if>
+        <if test="makeEmpId != null">
+            AND goodsProduceOrder_.make_emp_id = #{makeEmpId}
+        </if>
+        <if test="auditEmpId != null">
+            AND goodsProduceOrder_.audit_emp_id = #{auditEmpId}
+        </if>
+        <if test="startDate != null">
+            <![CDATA[  AND goodsProduceOrder_.make_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND goodsProduceOrder_.make_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="tenantId != null">
+            AND goodsProduceOrder_.tenant_id = ${tenantId}
+        </if>
+        <if test="branchId != null">
+            AND goodsProduceOrder_.branch_id = ${branchId}
+        </if>
+
+    </sql>
+
+    <!-- 分页查询-商品加工单表 -->
+    <select id="queryPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="select_pager"/>
+        <include refid="term_goodsProduceOrder"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+
+    <!-- 统计查询-商品加工单表 -->
+    <select id="queryCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="select_pager"/>
+        <include refid="term_goodsProduceOrder"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+
+    <!-- id查询-商品加工单表 -->
+    <select id="get" resultType="goodsProduceOrder">
+        <include refid="column_goodsProduceOrder"/>
+        <include refid="select_table"/>
+        WHERE goodsProduceOrder_.is_deleted = 0
+        AND goodsProduceOrder_.id = #{id}
+    </select>
+
+    <!-- id删除-商品加工单表 -->
+    <update id="delete">
+        UPDATE goods_produce_order set is_deleted = 1,last_update_by=#{empId}
+        ,last_update_at=now(),version=next_version(version)
+        WHERE id=#{id}
+    </update>
+    <!-- id审核-商品加工单表 -->
+    <update id="audit">
+        UPDATE goods_produce_order set status = 2,last_update_by=#{empId},last_update_at=now(),
+        version=next_version(version),audit_emp_id=#{empId},audit_at=now()
+        WHERE id=#{id} AND version=#{version}
+    </update>
+
+    <!-- id更新-商品加工单表 -->
+    <update id="update">
+        UPDATE goods_produce_order set
+        goods_id=#{goodsId},
+        price=#{price},
+        quantity=#{quantity},
+        last_update_by=#{lastUpdateBy},
+        last_update_at=#{lastUpdateAt},
+        memo=#{memo},
+        version=next_version(version),
+        is_update_price=#{isUpdatePrice}
+        WHERE id=#{id}
+    </update>
+
+    <!-- 保存-商品加工单表 -->
+    <insert id="save" useGeneratedKeys="true" keyProperty="id">
+        insert into goods_produce_order(tenant_id,branch_id,code,goods_id,type,
+        status,price,quantity,make_emp_id,make_at,
+        is_deleted,create_at,create_by,last_update_by,last_update_at,
+        memo,is_update_price)
+        value (${tenantId},${branchId},#{code},#{goodsId},#{type},
+        #{status},#{price},#{quantity},#{makeEmpId},#{makeAt},
+        0,#{createAt},#{createBy},#{lastUpdateBy},#{lastUpdateAt},
+        #{memo},#{isUpdatePrice})
+    </insert>
+
+    <!--查询加工商品加工关系-->
+    <select id="queryGoodsProduceRelation" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        goods_id
+        FROM
+        goods_produce_relation re
+        WHERE re.produce_goods_id = #{produceGoodsId}
+        AND re.is_deleted = 0
+        AND re.tenant_id = ${tenantId}
+    </select>
+
+</mapper>

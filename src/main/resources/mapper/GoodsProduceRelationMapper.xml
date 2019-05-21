@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.GoodsProduceRelationMapper">
+    <select id="queryProduceGoods" resultType="mapUnderscoreToCamelCase">
+        <include refid="queryProduceGoodsBody"/>
+        <include refid="queryProduceGoodsEnd"/>
+    </select>
+    <select id="queryProduceGoodsSum" resultType="Long">
+        <include refid="queryProduceGoodsSumHead"/>
+        <include refid="queryProduceGoodsBody"/>
+        <include refid="queryProduceGoodsSumEnd"/>
+    </select>
+    <sql id="queryProduceGoodsSumHead">
+        select count(r.goods_id) total from (
+    </sql>
+    <sql id="queryProduceGoodsSumEnd">
+        ) r
+    </sql>
+    <sql id="queryProduceGoodsEnd">
+        <if test="offset!=null and rows!=null">
+            LIMIT ${offset},${rows}
+        </if>
+    </sql>
+    <sql id="queryProduceGoodsBody">
+        SELECT
+        g.id goods_id,g.goods_code,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name,
+        g.sale_price,g.branch_id,
+        g.combination_type,c.cat_code,c.cat_name,g.category_id,g.goods_unit_name,g.purchasing_price,
+        SUM(IFNULL(r.quantity * re.sale_price, 0)) produce_price_total,
+        IFNULL(s.avg_amount,g.purchasing_price) store_avg
+        FROM
+        goods g
+        INNER JOIN category c
+        ON g.category_id = c.id
+        LEFT JOIN goods_produce_relation r
+        ON r.produce_goods_id = g.id AND r.tenant_id = g.tenant_id AND r.is_deleted = 0
+        LEFT JOIN goods re ON r.goods_id = re.id
+        LEFT JOIN store s ON g.id = s.goods_id AND s.tenant_id = g.tenant_id AND s.branch_id = ${branchId}
+        WHERE g.tenant_id = ${tenantId}
+        <if test="onlySelf == 0">
+            AND (g.branch_id = ${branchId} OR g.branch_id=(SELECT id FROM branch WHERE tenant_id=${tenantId} AND branch_type=0 AND is_deleted=0))
+        </if>
+        <if test="onlySelf == 1">
+            AND g.branch_id = ${branchId}
+        </if>
+        AND g.is_deleted = 0
+        AND g.combination_type in (1,2,3)
+        <if test="codeOrName!=null and codeOrName!=''">
+            AND (g.goods_name like '%${codeOrName}%' or g.goods_code like '%${codeOrName}%' or g.mnemonic like
+            '%${codeOrName}%' or g.bar_code like '%${codeOrName}%')
+        </if>
+        <if test="categoryId!=null and categoryId!=''">
+            AND (g.category_id IN (SELECT id FROM  category cc where cc.tenant_id=${tenantId} and (cc.id=#{categoryId} or cc.parent_id=#{categoryId})) OR g.category_id = #{categoryId})
+        </if>
+        <if test="combinationType!=null and combinationType!=''">
+            AND g.combination_type = ${combinationType}
+        </if>
+        GROUP BY g.id ORDER BY g.create_at DESC
+    </sql>
+
+    <select id="getRelationById" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        r.goods_id, g.goods_code,g.combination_type,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name,g.bar_code,c.cat_code,
+        c.cat_name, g.category_id,
+        g.sale_price,r.quantity,u.unit_name goods_unit_name, u1.unit_name packing_unit_name,
+        IFNULL(s.avg_amount,g.purchasing_price) store_avg, g.unit_relation
+        FROM
+        goods_produce_relation r
+        INNER JOIN goods g ON r.goods_id = g.id
+        AND r.tenant_id = ${tenantId}
+        AND r.produce_goods_id = ${produceGoodsId}
+        AND (r.branch_id = ${branchId} OR r.branch_id=(SELECT id FROM branch WHERE tenant_id=${tenantId} AND
+        branch_type=0 AND is_deleted=0))
+        AND r.is_deleted = 0
+        LEFT JOIN store s ON g.id = s.goods_id AND s.tenant_id = g.tenant_id AND s.branch_id = ${branchId} AND s.is_deleted=0
+        INNER JOIN category c ON g.category_id = c.id
+        LEFT JOIN goods_unit u ON g.goods_unit_id = u.id
+        LEFT JOIN goods_unit u1 ON g.packing_unit_id = u1.id
+        <if test="offset!=null and rows!=null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="getRelationByIdSum" resultType="Long">
+        SELECT
+        count(c.id) total
+        FROM
+        goods_produce_relation r
+        INNER JOIN goods g ON r.goods_id = g.id
+        AND r.tenant_id = ${tenantId}
+        AND r.produce_goods_id = ${produceGoodsId}
+        AND (r.branch_id = ${branchId} OR r.branch_id=(SELECT id FROM branch WHERE tenant_id=${tenantId} AND
+        branch_type=0 AND is_deleted=0))
+        AND r.is_deleted = 0
+        INNER JOIN category c ON g.category_id = c.id
+        where 1=1
+    </select>
+    <update id="deleteByProduceGoodsId">
+        UPDATE goods_produce_relation SET is_deleted=1,last_update_at=NOW(),last_update_by='System' WHERE produce_goods_id=#{produceGoodsId}
+    </update>
+    <insert id="insertRelation" parameterType="map">
+        INSERT INTO goods_produce_relation(tenant_id,branch_id,produce_goods_id,goods_id,quantity,is_deleted,
+        create_at,create_by,last_update_at,last_update_by,memo,version)
+        VALUES
+        <foreach item="map" collection="relationList" separator=",">
+            (#{map.tenantId},#{map.branchId},#{map.produceGoodsId},#{map.goodsId},#{map.quantity},#{map.isDeleted},
+            #{map.createAt},#{map.createBy},#{map.lastUpdateAt},#{map.lastUpdateBy},#{map.memo},#{map.version})
+        </foreach>
+    </insert>
+    <select id="getRelationQuantity" resultType="BigDecimal">
+        SELECT quantity FROM goods_produce_relation WHERE  is_deleted=0 AND produce_goods_id=#{produceGoodsId} AND goods_id=#{goodsId} limit 1
+    </select>
+
+    <update id="doDeleteRelationGoodsById">
+        UPDATE goods SET is_deleted=1,last_update_at=NOW(),last_update_by='System' WHERE id=#{produceGoodsId}
+    </update>
+
+</mapper>

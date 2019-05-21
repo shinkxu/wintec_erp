@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.OnlineCardCouponMapper">
+    <select id="listCards" resultType="erp.chain.domain.online.OnlineCardCoupon">
+        SELECT
+        card_coupons.*,
+        card_to_vip.use_status
+        FROM card_to_vip
+        INNER JOIN card_coupons ON card_coupons.id = card_to_vip.card_coupons_id AND card_coupons.card_type = 1
+        <if test="cardType != null">
+            AND card_coupons.card_type = #{cardType}
+        </if>
+        <if test="limitValue != null">
+            AND card_coupons.limit_value >= #{limitValue}
+        </if>
+        WHERE card_to_vip.tenant_id = #{tenantId}
+        AND card_to_vip.vip_id = #{vipId}
+        AND card_to_vip.is_deleted = 0
+    </select>
+
+    <select id="statisticsCouponsCount" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        festival_id,
+        COUNT(1) AS count
+        FROM card_to_vip
+        WHERE vip_id = #{vipId}
+        AND use_status = 0
+        AND is_deleted = 0
+        AND festival_id IN
+        <foreach collection="festivalIds" index="index" item="festivalId" open="(" separator="," close=")">
+            #{festivalId}
+        </foreach>
+        GROUP BY festival_id
+    </select>
+</mapper>

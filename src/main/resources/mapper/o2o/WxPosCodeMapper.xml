@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.o2o.WxPosCodeMapper" >
+  <select id="getList" resultType="WxPosCode">
+    SELECT * from wx_pos_code v where v.is_deleted = 0
+    <if test="vipId != null and vipId != ''">
+      AND v.vip_id =#{vipId}
+    </if>
+    <if test="code != null and code != ''">
+      AND v.code =#{code}
+    </if>
+  </select>
+</mapper>

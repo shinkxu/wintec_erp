@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.OnlineVipMapper">
+    <insert id="insert" parameterType="erp.chain.domain.online.OnlineVip" useGeneratedKeys="true" keyProperty="id">
+        ${@erp.chain.utils.DatabaseUtils@generateInsertSql("erp.chain.domain.online.OnlineVip", "vip")}
+    </insert>
+
+    <insert id="insertAll" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        <bind name="sql" value="@erp.chain.utils.DatabaseUtils@generateInsertAllSql('erp.chain.domain.online.OnlineVip', 'vip')"></bind>
+        ${sql[0]}
+        <foreach collection="list" index="index" item="item" separator=",">
+            ${sql[1]}
+        </foreach>
+    </insert>
+
+    <update id="update" parameterType="erp.chain.domain.online.OnlineVip">
+        ${@erp.chain.utils.DatabaseUtils@generateUpdateSql("erp.chain.domain.online.OnlineVip", "vip")}
+    </update>
+
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineVip">
+        SELECT * FROM vip <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="findAll" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineVip">
+        SELECT * FROM vip <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="findAllVipInfos" resultType="erp.chain.domain.online.OnlineVip">
+        SELECT * FROM vip WHERE tenant_id = #{tenantId} AND (original_id = #{openId} OR phone = #{phone}) AND is_deleted = 0
+    </select>
+
+    <select id="countVipCoupons" resultType="long">
+        SELECT COUNT(1) FROM card_to_vip WHERE tenant_id = #{tenantId} AND vip_id = #{vipId} AND use_status = 0 AND is_deleted = 0;
+    </select>
+
+    <select id="queryConsumeHistory" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        vip_trade_history.trade_no,
+        vip_trade_history.trade_date,
+        vip_trade_history.tenant_id,
+        vip_trade_history.trade_amount,
+        branch.id AS branch_id,
+        branch.name AS branch_name,
+        vip_trade_history.trade_type,
+        vip_trade_history.pay_amount,
+        IFNULL(vip_book.vip_score, 0) AS add_score,
+        vip_trade_history.vip_id
+        FROM vip_trade_history
+        LEFT OUTER JOIN (SELECT vip_id, tenant_id, payment_code, SUM(vip_score) AS vip_score FROM vip_book WHERE tenant_id = #{tenantId} AND vip_id = #{vipId} AND is_deleted = 0 AND book_type = 1 GROUP BY payment_code) AS vip_book ON vip_trade_history.trade_no = vip_book.payment_code
+        INNER JOIN branch ON branch.id = vip_trade_history.trade_branch_id
+        WHERE vip_trade_history.tenant_id = #{tenantId}
+        AND vip_trade_history.vip_id = #{vipId}
+        AND vip_trade_history.is_deleted = 0
+        <if test="startDate != null">
+            AND vip_trade_history.trade_date &gt;= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND vip_trade_history.trade_date &lt;= #{endDate}
+        </if>
+        ORDER BY vip_trade_history.trade_date DESC;
+    </select>
+
+    <select id="findAllSameVips" resultType="erp.chain.domain.online.OnlineVip">
+        SELECT
+        *
+        FROM vip
+        WHERE tenant_id = #{tenantId}
+        AND branch_id IN (SELECT id FROM branch WHERE tenant_id = #{tenantId} AND group_code = #{groupCode} AND is_deleted = 0)
+        AND (phone = #{phone} OR id = #{vipId})
+        AND is_deleted = 0
+        ORDER BY create_at
+    </select>
+</mapper>

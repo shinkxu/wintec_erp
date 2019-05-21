@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.OnlineWxStoreOrderMapper">
+    <insert id="insert" parameterType="erp.chain.domain.online.OnlineWxStoreOrder" useGeneratedKeys="true" keyProperty="id">
+        ${@erp.chain.utils.DatabaseUtils@generateInsertSql("erp.chain.domain.online.OnlineWxStoreOrder", "wx_store_order")}
+    </insert>
+
+    <update id="update" parameterType="erp.chain.domain.online.OnlineWxStoreOrder">
+        ${@erp.chain.utils.DatabaseUtils@generateUpdateSql("erp.chain.domain.online.OnlineWxStoreOrder", "wx_store_order")}
+    </update>
+
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineWxStoreOrder">
+        SELECT * FROM wx_store_order <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+</mapper>

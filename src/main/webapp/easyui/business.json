@@ -1,0 +1,64 @@
+[
+  {
+    "code": "1",
+    "name": "餐饮",
+    "children": [
+      {
+        "code":"101",
+        "name": "小吃快餐",
+        "children": [
+          {
+            "code": "10101",
+            "name": "烧烤",
+            "children": []
+          },
+          {
+            "code": "10102",
+            "name": "甜品",
+            "children": []
+          },
+          {
+            "code": "10103",
+            "name": "咖啡",
+            "children": []
+          },
+          {
+            "code": "10104",
+            "name": "饮品",
+            "children": []
+          },
+          {
+            "code": "10105",
+            "name": "中式快餐",
+            "children": []
+          },
+          {
+            "code": "10106",
+            "name": "西式快餐",
+            "children": []
+          },
+          {
+            "code": "10107",
+            "name": "特色小吃",
+            "children": []
+          },
+          {
+            "code": "10199",
+            "name": "其它",
+            "children": []
+          }
+        ]
+      },
+      {
+        "code": "199",
+        "name": "其它",
+        "children": []
+      }
+    ]
+  },
+  {
+    "code": "5",
+    "name": "零售",
+    "children":[]
+  }
+]

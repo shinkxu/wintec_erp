@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.MappingSettingMapper">
+    <resultMap id="BaseResultMap" type="erp.chain.domain.GoodsMapping">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="tenant_id" property="tenantId" jdbcType="BIGINT"/>
+        <result column="distribution_center_id" property="distributionCenterId" jdbcType="BIGINT"/>
+        <result column="our_goods_id" property="ourGoodsId" jdbcType="BIGINT"/>
+        <result column="other_goods_id" property="otherGoodsId" jdbcType="BIGINT"/>
+        <result column="goods_code" property="goodsCode" jdbcType="VARCHAR"/>
+        <result column="goods_name" property="goodsName" jdbcType="VARCHAR"/>
+        <result column="type_id" property="typeId" jdbcType="BIGINT"/>
+        <result column="full_name" property="fullName" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="pageFoot">
+        LIMIT ${offset},${rows}
+    </sql>
+
+    <!--商品对应关系-->
+    <sql id="listGoodsMappingHead">
+        SELECT COUNT(p.id) FROM (
+    </sql>
+    <sql id="listGoodsMappingMain">
+        SELECT g.id, g.goods_code, IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name, t.type_id, t.full_name FROM goods g LEFT JOIN (
+        SELECT gm.id, gm.our_goods_id, d.type_id, d.full_name FROM goods_mapping gm
+        INNER JOIN daq_grasp_ptype d ON gm.other_goods_id = d.type_id
+        WHERE gm.tenant_id = ${tenantId} AND d.tenant_code = ${tenantCode} AND gm.distribution_center_id = ${distributionCenterId}) t
+        ON g.id = t.our_goods_id WHERE  g.tenant_id = ${tenantId} AND g.branch_id = ${branchId}
+        AND g.is_deleted = 0 AND g.goods_type != 2
+        <if test="goodsCodeOrName != null and goodsCodeOrName != ''">
+            AND (g.goods_code LIKE '%${goodsCodeOrName}%' OR  g.goods_name LIKE '%${goodsCodeOrName}%'
+            OR t.type_id LIKE '%${goodsCodeOrName}%' OR t.full_name LIKE '%${goodsCodeOrName}%')
+        </if>
+    </sql>
+    <sql id="listGoodsMappingFoot">
+        ) p
+    </sql>
+
+    <!--<select id="listGoodsMapping" parameterType="java.util.Map" resultType="mapUnderscoreToCamelCase">
+        <include refid="listGoodsMappingMain"/>
+        <include refid="pageFoot"/>
+    </select>-->
+    <select id="listGoodsMappingSum" parameterType="java.util.Map" resultType="java.lang.Long">
+        <include refid="listGoodsMappingHead"/>
+        <include refid="listGoodsMappingMain"/>
+        <include refid="listGoodsMappingFoot"/>
+    </select>
+
+    <!--查询第三方商品（不存在对应关系商品）-->
+    <sql id="listThirdGoodsHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="listThirdGoodsMain">
+        SELECT d.type_id,d.full_name FROM daq_grasp_ptype d WHERE d.type_id NOT IN
+        (SELECT gm.other_goods_id FROM goods_mapping gm WHERE gm.tenant_id = ${tenantId}
+        AND gm.distribution_center_id = ${distributionCenterId})
+        AND d.tenant_code = ${tenantCode}
+        <if test="addGoodsIds !=null and addGoodsIds != ''">
+            AND d.type_id NOT IN (${addGoodsIds})
+        </if>
+        <if test="goodsCodeOrName != null and goodsCodeOrName != ''">
+            AND (d.type_id LIKE '%${goodsCodeOrName}%' OR d.full_name LIKE '%${goodsCodeOrName}%')
+        </if>
+        <if test="deleteGoodIds != null and deleteGoodIds != ''">
+            UNION ALL SELECT dg.type_id, dg.full_name FROM daq_grasp_ptype dg WHERE dg.type_id IN (${deleteGoodIds}) AND dg.tenant_code = ${tenantCode}
+        </if>
+    </sql>
+    <sql id="listThirdGoodsFoot">
+        ) t
+    </sql>
+    <!--<select id="listThirdGoods" parameterType="java.util.Map" resultType="mapUnderscoreToCamelCase">
+        <include refid="listThirdGoodsMain"/>
+        &lt;!&ndash;<include refid="pageFoot"/>&ndash;&gt;
+    </select>-->
+    <select id="listThirdGoodsSum" parameterType="java.util.Map" resultType="java.lang.Long">
+        <include refid="listThirdGoodsHead"/>
+        <include refid="listThirdGoodsMain"/>
+        <include refid="listThirdGoodsFoot"/>
+    </select>
+    <!--删除取消关联数据-->
+    <!--<delete id="deleteGoodsMapping">
+        DELETE FROM goods_mapping WHERE tenant_id = ${tenantId} AND distribution_center_id = ${distributionCenterId} AND our_goods_id IN (${goodsIds})
+    </delete>-->
+    <!--保存新设置对应关系-->
+    <!--<insert id="saveGoodsMapping" useGeneratedKeys="true" parameterType="java.util.List">
+        INSERT INTO goods_mapping (tenant_id, distribution_center_id, our_goods_id, other_goods_id) VALUES
+          <foreach collection="goodsMappings" item="goodsMapping" index="index" separator="," >
+              (#{goodsMapping.tenantId}, #{goodsMapping.distributionCenterId}, #{goodsMapping.ourGoodsId}, #{goodsMapping.otherGoodsId})
+          </foreach>
+    </insert>-->
+
+    <!--分页查询机构对应关系-->
+    <sql id="listBranchMappingHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="listBranchMappingMain">
+        SELECT b.id, b.code, b.name, d.type_id, d.full_name FROM branch b LEFT OUTER JOIN
+        (SELECT  bm.id, bm.our_branch_id, dg.type_id, dg.full_name FROM branch_mapping bm INNER JOIN daq_grasp_btype dg ON bm.other_branch_id = dg.type_id
+        AND dg.tenant_code = ${tenantCode} WHERE bm.tenant_id = ${tenantId} AND bm.distribution_center_id = ${distributionCenterId}) d
+        ON b.id = d.our_branch_id WHERE b.tenant_id = ${tenantId} AND b.distribution_center_id = ${distributionCenterId} AND b.is_deleted = 0
+        <if test="branchCodeOrName != null and branchCodeOrName != ''">
+            AND (b.code LIKE '%${branchCodeOrName}%' OR b.name LIKE '%${branchCodeOrName}%' OR d.type_id LIKE '%${branchCodeOrName}%' OR d.full_name LIKE '%$branchCodeOrName%')
+        </if>
+    </sql>
+    <sql id="listBranchMappingFoot">
+        ) s
+    </sql>
+    <select id="listBranchMapping" parameterType="java.util.Map" resultType="mapUnderscoreToCamelCase">
+        <include refid="listBranchMappingMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="listBranchMappingSum" parameterType="java.util.Map" resultType="java.lang.Long">
+        <include refid="listBranchMappingHead"/>
+        <include refid="listBranchMappingMain"/>
+        <include refid="listBranchMappingFoot"/>
+    </select>
+
+    <!--查询第三方机构-->
+    <sql id="listThirdBranchHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="listThirdBranchMain">
+        SELECT dg.type_id, dg.full_name FROM daq_grasp_btype dg WHERE dg.type_id NOT IN
+        (SELECT bm.other_branch_id FROM branch_mapping bm WHERE bm.tenant_id = ${tenantId} AND bm.distribution_center_id = ${distributionCenterId})
+        AND dg.tenant_code = #{tenantCode}
+        <if test="addBranchIds != null and addBranchIds != ''">
+            AND dg.type_id NOT IN (${addBranchIds})
+        </if>
+        <if test="branchCodeOrName != null and branchCodeOrName != ''">
+            AND (dg.type_id LIKE '%${branchCodeOrName}%' OR dg.full_name LIKE '%${branchCodeOrName}%')
+        </if>
+        <if test="deleteBranchIds != null and deleteBranchIds != ''">
+            UNION ALL SELECT dg.type_id, dg.full_name FROM daq_grasp_btype dg WHERE dg.type_id IN (${deleteBranchIds}) AND dg.tenant_code = ${tenantCode}
+            <if test="branchCodeOrName != null and branchCodeOrName != ''">
+                AND (dg.type_id LIKE '%${branchCodeOrName}%' OR dg.full_name LIKE '%${branchCodeOrName}%')
+            </if>
+        </if>
+    </sql>
+    <sql id="listThirdBranchFoot">
+        ) s
+    </sql>
+    <select id="listThirdBranch" parameterType="java.util.Map" resultType="mapUnderscoreToCamelCase">
+        <include refid="listThirdBranchMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="listThirdBranchSum" parameterType="java.util.Map" resultType="java.lang.Long">
+        <include refid="listThirdBranchHead"/>
+        <include refid="listThirdBranchMain"/>
+        <include refid="listThirdBranchFoot"/>
+    </select>
+
+    <!--删除取消关联机构数据-->
+    <delete id="deleteBranchMapping">
+        DELETE FROM branch_mapping WHERE tenant_id = ${tenantId} AND distribution_center_id = ${distributionCenterId} AND our_branch_id IN (${branchIds})
+    </delete>
+
+    <!--保存机构对应关系-->
+    <insert id="saveBranchMapping" useGeneratedKeys="true" parameterType="java.util.List">
+        INSERT INTO branch_mapping (tenant_id, distribution_center_id, our_branch_id, other_branch_id) VALUES
+        <foreach collection="branchMappings" item="branchMapping" index="index" separator=",">
+            (#{branchMapping.tenantId}, #{branchMapping.distributionCenterId}, #{branchMapping.ourBranchId}, #{branchMapping.otherBranchId})
+        </foreach>
+    </insert>
+
+
+    <!--2017年8月21日09:36:30-->
+    <select id="listGoodsMapping" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        goods.id,
+        goods.goods_code,
+        goods.goods_name,
+        other_goods_info.type_id,
+        other_goods_info.unit_id,
+        other_goods_info.full_name
+        FROM goods
+        LEFT OUTER JOIN (
+        SELECT
+        goods_mapping.id,
+        goods_mapping.our_goods_id,
+        daq_grasp_ptype.type_id,
+        daq_grasp_unit.unit_id,
+        CONCAT(daq_grasp_ptype.full_name, "-", daq_grasp_unit.unit_name) AS full_name
+        FROM goods_mapping
+        INNER JOIN daq_grasp_ptype ON goods_mapping.other_goods_id = daq_grasp_ptype.type_id AND daq_grasp_ptype.tenant_code = #{tenantCode}
+        INNER JOIN daq_grasp_unit ON goods_mapping.unit_id = daq_grasp_unit.unit_id AND daq_grasp_unit.type_id = goods_mapping.other_goods_id AND daq_grasp_unit.tenant_code = #{tenantCode}
+        WHERE goods_mapping.tenant_id = ${tenantId} AND goods_mapping.distribution_center_id = #{distributionCenterId})
+        AS other_goods_info ON goods.id = other_goods_info.our_goods_id
+        WHERE goods.tenant_id = ${tenantId}
+        AND goods.branch_id = ${branchId}
+        AND goods.is_deleted = 0
+        AND goods.goods_type != 2
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(goodsCodeOrName)">
+            <bind name="goodsCodeOrName" value="'%' + goodsCodeOrName + '%'"></bind>
+            AND (goods.goods_code LIKE #{goodsCodeOrName} OR goods.goods_name LIKE #{goodsCodeOrName} OR other_goods_info.type_id LIKE #{goodsCodeOrName} OR other_goods_info.full_name LIKE #{goodsCodeOrName})
+        </if>
+        <if test="onlySelf == 1">
+            AND g.branch_id = #{branchId}
+        </if>
+        LIMIT #{offset}, #{maxResults}
+    </select>
+
+    <select id="queryGoodsMappingCount" resultType="long">
+        SELECT
+        COUNT(1)
+        FROM goods
+        LEFT OUTER JOIN (
+        SELECT
+        goods_mapping.id,
+        goods_mapping.our_goods_id,
+        daq_grasp_ptype.type_id,
+        daq_grasp_unit.unit_id,
+        CONCAT(daq_grasp_ptype.full_name, "-", daq_grasp_unit.unit_name) AS full_name
+        FROM goods_mapping
+        INNER JOIN daq_grasp_ptype ON goods_mapping.other_goods_id = daq_grasp_ptype.type_id AND daq_grasp_ptype.tenant_code = #{tenantCode}
+        INNER JOIN daq_grasp_unit ON goods_mapping.unit_id = daq_grasp_unit.unit_id AND daq_grasp_unit.type_id = goods_mapping.other_goods_id AND daq_grasp_unit.tenant_code = #{tenantCode}
+        WHERE goods_mapping.tenant_id = ${tenantId} AND goods_mapping.distribution_center_id = #{distributionCenterId})
+        AS other_goods_info ON goods.id = other_goods_info.our_goods_id
+        WHERE goods.tenant_id = ${tenantId}
+        AND goods.branch_id = ${branchId}
+        AND goods.is_deleted = 0
+        AND goods.goods_type != 2
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(goodsCodeOrName)">
+            <bind name="goodsCodeOrName" value="'%' + goodsCodeOrName + '%'"></bind>
+            AND (goods.goods_code LIKE #{goodsCodeOrName} OR goods.goods_name LIKE #{goodsCodeOrName} OR other_goods_info.type_id LIKE #{goodsCodeOrName} OR other_goods_info.full_name LIKE #{goodsCodeOrName})
+        </if>
+        <if test="onlySelf == 1">
+            AND g.branch_id = #{branchId}
+        </if>
+    </select>
+
+    <select id="listThirdGoods" resultType="erp.chain.domain.MapUnderscoreToCamelCase">
+        SELECT
+        other_goods_info.type_id,
+        other_goods_info.full_name
+        FROM (<include refid="otherGoodsInfoSql"></include>) AS other_goods_info
+        WHERE other_goods_info.tenant_code = #{tenantCode}
+        AND other_goods_info.type_id NOT IN (SELECT CONCAT(goods_mapping.other_goods_id, "_", goods_mapping.unit_id) FROM goods_mapping WHERE goods_mapping.tenant_id = ${tenantId} AND goods_mapping.distribution_center_id = #{distributionCenterId})
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(addGoodsIds)">
+            <bind name="addGoodsIdsArray" value="@org.apache.commons.lang.StringUtils@split(addGoodsIds, ',')"></bind>
+            AND other_goods_info.type_id NOT IN
+            <foreach collection="addGoodsIdsArray" index="index" item="addGoodsId" open="(" separator="," close=")">
+                #{addGoodsId}
+            </foreach>
+        </if>
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(goodsCodeOrName)">
+            <bind name="searchStr" value="'%' + goodsCodeOrName + '%'"></bind>
+            AND (other_goods_info.type_id LIKE #{searchStr} OR other_goods_info.full_name LIKE #{searchStr})
+        </if>
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(deleteGoodsIds)">
+            UNION ALL
+            SELECT
+            other_goods_info.type_id,
+            other_goods_info.full_name
+            FROM (<include refid="otherGoodsInfoSql"></include>) AS other_goods_info
+            WHERE other_goods_info.type_id IN
+            <bind name="deleteGoodsIdsArray" value="@org.apache.commons.lang.StringUtils@split(deleteGoodsIds, ',')"></bind>
+            <foreach collection="deleteGoodsIdsArray" index="index" item="deleteGoodsId" open="(" separator="," close=")">
+                #{deleteGoodsId}
+            </foreach>
+            AND other_goods_info.tenant_code = #{tenantCode}
+            <if test="@org.apache.commons.lang.StringUtils@isNotBlank(goodsCodeOrName)">
+                AND (other_goods_info.type_id LIKE #{searchStr} OR other_goods_info.full_name LIKE #{searchStr})
+            </if>
+        </if>
+        LIMIT #{offset}, #{maxResults}
+    </select>
+
+    <select id="queryThirdGoodsCount" resultType="long">
+        SELECT
+        COUNT(1)
+        FROM (
+        SELECT * FROM (<include refid="otherGoodsInfoSql"></include>) AS other_goods_info
+        WHERE other_goods_info.tenant_code = #{tenantCode}
+        AND other_goods_info.type_id NOT IN (SELECT CONCAT(goods_mapping.other_goods_id, "_", goods_mapping.unit_id) FROM goods_mapping WHERE goods_mapping.tenant_id = ${tenantId} AND goods_mapping.distribution_center_id = #{distributionCenterId})
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(addGoodsIds)">
+            <bind name="addGoodsIdsArray" value="@org.apache.commons.lang.StringUtils@split(addGoodsIds, ',')"></bind>
+            AND other_goods_info.type_id NOT IN
+            <foreach collection="addGoodsIdsArray" index="index" item="addGoodsId" open="(" separator="," close=")">
+                #{addGoodsId}
+            </foreach>
+        </if>
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(goodsCodeOrName)">
+            <bind name="searchStr" value="'%' + goodsCodeOrName + '%'"></bind>
+            AND (other_goods_info.type_id LIKE #{searchStr} OR other_goods_info.full_name LIKE #{searchStr})
+        </if>
+        <if test="@org.apache.commons.lang.StringUtils@isNotBlank(deleteGoodsIds)">
+            UNION ALL
+            SELECT *
+            FROM (<include refid="otherGoodsInfoSql"></include>) AS other_goods_info
+            WHERE other_goods_info.type_id IN
+            <bind name="deleteGoodsIdsArray" value="@org.apache.commons.lang.StringUtils@split(deleteGoodsIds, ',')"></bind>
+            <foreach collection="deleteGoodsIdsArray" index="index" item="deleteGoodsId" open="(" separator="," close=")">
+                #{deleteGoodsId}
+            </foreach>
+            AND other_goods_info.tenant_code = #{tenantCode}
+            <if test="@org.apache.commons.lang.StringUtils@isNotBlank(goodsCodeOrName)">
+                AND (other_goods_info.type_id LIKE #{searchStr} OR other_goods_info.full_name LIKE #{searchStr})
+            </if>
+        </if>
+        ) AS t1
+    </select>
+
+    <sql id="otherGoodsInfoSql">
+        SELECT
+        daq_grasp_ptype.tenant_code,
+        CONCAT(daq_grasp_ptype.type_id, "_", daq_grasp_unit.unit_id) AS type_id,
+        CONCAT(daq_grasp_ptype.full_name, "-", daq_grasp_unit.unit_name) AS full_name
+        FROM daq_grasp_ptype
+        INNER JOIN daq_grasp_unit ON daq_grasp_ptype.type_id = daq_grasp_unit.type_id AND daq_grasp_ptype.tenant_code = daq_grasp_unit.tenant_code
+    </sql>
+
+    <delete id="deleteGoodsMapping">
+        DELETE FROM goods_mapping WHERE tenant_id = ${tenantId} AND distribution_center_id = #{distributionCenterId} AND our_goods_id IN
+        <foreach collection="ourGoodsIds" index="index" item="ourGoodsId" open="(" separator="," close=")">
+            #{ourGoodsId}
+        </foreach>
+    </delete>
+
+    <insert id="saveGoodsMapping" useGeneratedKeys="true" parameterType="java.util.List">
+        INSERT INTO goods_mapping (tenant_id, distribution_center_id, our_goods_id, other_goods_id, unit_id) VALUES
+        <foreach collection="goodsMappings" index="index" item="goodsMapping" separator=",">
+            (#{goodsMapping.tenantId}, #{goodsMapping.distributionCenterId}, #{goodsMapping.ourGoodsId}, #{goodsMapping.otherGoodsId}, #{goodsMapping.unitId})
+        </foreach>
+    </insert>
+</mapper>

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.report.GiveAndReturnMapper">
+    <!-- mysql 分页头 -->
+    <sql id="pagination_Head">
+        <![CDATA[ select row_.* from ( ]]>
+    </sql>
+    <!-- mysql 分页尾 -->
+    <sql id="pagination_Tail">
+        <![CDATA[ ) row_ LIMIT #{pager.firstPage},#{pager.lastPage} ]]>
+    </sql>
+    <!-- count * from -->
+    <sql id="count_Start_Head">
+        <![CDATA[ select count(*) count from ( ]]>
+    </sql>
+    <sql id="count_Start_Tail">
+        <![CDATA[ ) t ]]>
+    </sql>
+    <sql id="order_head">
+        <![CDATA[ SELECT order_.* from ( ]]>
+    </sql>
+    <sql id="order_by">
+        <![CDATA[ ) order_ ]]>
+        <if test="pager.orderProperty != null and pager.order != null">
+            ORDER BY ${pager.orderProperty} ${pager.order}
+        </if>
+    </sql>
+
+    <sql id="column_">
+        SELECT
+        e.id emp_id,
+        e.code emp_code,
+        e.name emp_name,
+        g.goods_code,
+        IF (
+                    g.standard_name IS NULL or g.standard_name="",
+                    g.goods_name,
+                    concat(g.goods_name,"(",g.standard_name,")")
+                    ) goods_name,
+        g.category_name,
+        IF(s.is_refund = 1, 1, 2) TYPE,
+        s.checkout_at,
+        sd.memo
+        FROM
+        sale_detail sd
+        INNER JOIN sale s
+        ON sd.tenant_id = s.tenant_id
+        AND sd.branch_id = s.branch_id
+        AND sd.sale_code = s.sale_code
+        AND sd.is_deleted = 0
+        AND s.is_deleted = 0
+        INNER JOIN employee e
+        ON s.cashier = e.id
+        INNER JOIN goods g
+        ON sd.goods_id = g.id
+        WHERE 1 = 1
+    </sql>
+    
+    <sql id="term_">
+        <if test="startDate != null">
+            <![CDATA[  AND s.checkout_at >= '${startDate}:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND s.checkout_at <= '${endDate}:59' ]]>
+        </if>
+        <if test="tenantId != null">
+            AND s.tenant_id = ${tenantId}
+        </if>
+        <if test="branchId != null">
+            AND s.branch_id = #{branchId}
+        </if>
+        <choose>
+            <when test="type != null and type == 1">
+                AND s.is_refund = 1
+            </when>
+            <when test="type != null and type == 2">
+                AND sd.is_free_of_charge =1 AND s.is_refund = 0
+            </when>
+            <otherwise>
+                AND (s.is_refund = 1 or sd.is_free_of_charge = 1 )
+            </otherwise>
+        </choose>
+        <if test="empId != null">
+            AND e.id = #{empId}
+        </if>
+        <if test="codeLike != null">
+            AND g.goods_code like #{codeLike}
+        </if>
+
+    </sql>
+
+    <!-- 分页查询-商品加工单表 -->
+    <select id="queryPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="column_"/>
+        <include refid="term_"/>
+        order by s.checkout_at
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+
+    <!-- 统计查询-商品加工单表 -->
+    <select id="queryCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="column_"/>
+        <include refid="term_"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+
+</mapper>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.CommonMapper">
+
+    <select id="select" parameterType="string" resultType="map">
+        ${value}
+    </select>
+
+    <insert id="insert" parameterType="string">
+        ${value}
+    </insert>
+
+    <update id="update" parameterType="string">
+        ${value}
+    </update>
+
+    <delete id="delete" parameterType="string">
+        ${value}
+    </delete>
+
+    <update id="updateInfoTenant" parameterType="map">
+        UPDATE ${tableName}
+        SET ${field} = #{value}
+        <if test="updateAt != null">
+            ,last_update_at = NOW()
+        </if>
+        WHERE tenant_id = #{tenantId}
+        <if test="id != null">
+            AND id = #{id}
+        </if>
+        <if test="tenantPaymentId != null">
+            AND tenant_payment_id = #{tenantPaymentId}
+        </if>
+        <if test="branchId != null">
+            AND branch_id = #{branchId}
+        </if>
+        <if test="isDeleted != null">
+            AND is_deleted = #{isDeleted}
+        </if>
+    </update>
+
+</mapper>

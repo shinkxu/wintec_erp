@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.online.OnlineVipStoreRuleMapper">
+    <insert id="insert" parameterType="erp.chain.domain.online.OnlineVipStoreRule" useGeneratedKeys="true" keyProperty="id">
+        ${@erp.chain.utils.DatabaseUtils@generateInsertSql("erp.chain.domain.online.OnlineVipStoreRule", "vip_store_rule")}
+    </insert>
+
+    <update id="update" parameterType="erp.chain.domain.online.OnlineVipStoreRule">
+        ${@erp.chain.utils.DatabaseUtils@generateUpdateSql("erp.chain.domain.online.OnlineDietOrderDetail", "vip_store_rule")}
+    </update>
+
+    <select id="find" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineVipStoreRule">
+        SELECT * FROM vip_store_rule <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+
+    <select id="findAll" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.online.OnlineVipStoreRule">
+        SELECT * FROM vip_store_rule <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+</mapper>

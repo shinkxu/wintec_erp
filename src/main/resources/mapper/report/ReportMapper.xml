@@ -1,0 +1,3922 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.report.ReportMapper">
+    <sql id="pageFoot">
+        LIMIT ${offset},${rows}
+    </sql>
+    <!--交易流水-->
+    <sql id="saleFlowSumHead">
+        SELECT
+        COUNT(sale_.sale_id) total,
+        /*SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.goods_total ELSE sale_.goods_total * (- 1) END)) goods_total,*/
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.total_amount ELSE sale_.total_amount * (- 1) END)) total_amount,
+        /*优惠金额=折扣金额+赠送金额+抹零金额*/
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.discount_amount ELSE sale_.discount_amount * (- 1) END)) +
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.give_amount ELSE sale_.give_amount * (- 1) END)) +
+        SUM(IF(sale_.is_refund = 0, sale_.trunc_amount, (-1)*sale_.trunc_amount) ) discount_amount,
+        SUM(IF(sale_.is_refund = 0, sale_.preferential_amount, (-1)*sale_.preferential_amount)) preferential_amount,
+        /*SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.give_amount ELSE sale_.give_amount * (- 1) END)) give_amount,*/
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.deal_amount ELSE sale_.deal_amount * (- 1) END)) deal_amount,
+        /*SUM(IF(sale_.is_refund = 0, sale_.trunc_amount, (-1)*sale_.trunc_amount) ) trunc_amount,*/
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.long_amount ELSE sale_.long_amount * (- 1) END)) long_amount,
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.real_amount ELSE sale_.real_amount * (- 1) END)) real_amount FROM
+        (
+    </sql>
+    <sql id="saleFlowSumFoot">
+        ) sale_
+    </sql>
+    <sql id="saleFlowReportMain">
+        SELECT
+        s.id sale_id,
+        s.sale_code,
+        s.checkout_at,
+        s.sale_type,
+        e.id emp_id,
+        e. CODE emp_code,
+        e. NAME emp_name,
+        s.pos_code,
+        s.is_refund,
+        s.total_amount,
+        s.discount_amount discount_amount,
+        s.give_amount give_amount,
+        ABS(s.received_amount) deal_amount,
+        s.trunc_amount,
+        IFNULL(s.long_amount,0) long_amount,
+        s.discount_amount + s.give_amount + s.trunc_amount preferential_amount,
+        ABS(s.received_amount)  real_amount,
+        s.trans_terminal
+        FROM
+        sale s
+        INNER JOIN employee e ON s.tenant_id = e.tenant_id AND s.cashier = e.id
+        LEFT JOIN branch b ON s.tenant_id = b.tenant_id AND s.branch_id = b.id
+        WHERE s.tenant_id = ${tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        AND s.is_deleted = 0
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND s.checkout_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.checkout_at &lt;= '${endDate}'
+        </if>
+        <if test="saleCode != null and saleCode!=''">
+            AND s.sale_code LIKE '%${saleCode}%'
+        </if>
+        <if test="posId != null and posId!=''">
+            AND s.pos_id = #{posId}
+        </if>
+        <if test="posCode != null and posCode!=''">
+            AND s.pos_code = #{posCode}
+        </if>
+        <if test="empId != null and empId!=''">
+            AND s.cashier = #{empId}
+        </if>
+        <if test="isRefund != null and isRefund!=''">
+            AND s.is_refund = #{isRefund}
+        </if>
+        <if test="vipId != null and vipId!=''">
+            AND s.vip_id = #{vipId}
+        </if>
+        <if test="transTerminal != null and transTerminal != ''">
+            <if test="transTerminal == 1">
+                AND (s.trans_terminal = #{transTerminal} OR s.trans_terminal IS NULL)
+            </if>
+            <if test="transTerminal != 1">
+                AND s.trans_terminal = #{transTerminal}
+            </if>
+        </if>
+        GROUP BY
+        s.id
+        HAVING
+        1 = 1
+        <if test="order==null and field==null">
+            ORDER BY s.checkout_at DESC
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY s.${field} ${order}
+        </if>
+    </sql>
+    <select id="saleFlowReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="saleFlowSumHead"/>
+        <include refid="saleFlowReportMain"/>
+        <include refid="saleFlowSumFoot"/>
+    </select>
+    <select id="saleFlowReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="saleFlowReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <!--明细流水-->
+    <sql id="saleGoodsSumHead">
+        SELECT
+        COUNT(sale_.id) total,
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.quantity ELSE sale_.quantity * (- 1) END)) quantity,
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.total_amount ELSE sale_.total_amount * (- 1) END)) total_amount,
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.long_amount ELSE sale_.long_amount * (- 1) END)) long_amount,
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.discount_amount ELSE sale_.discount_amount * (- 1) END))discount_amount,
+        /*SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.give_amount ELSE sale_.give_amount * (- 1) END)) give_amount,*/
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.spec_amount ELSE sale_.spec_amount * (- 1) END)) spec_amount,
+        SUM((CASE WHEN sale_.is_refund = 0 THEN sale_.deal_amount ELSE sale_.deal_amount * (- 1) END)) deal_amount FROM
+        (
+    </sql>
+    <sql id="saleGoodsSumFoot">
+        ) sale_
+    </sql>
+    <sql id="saleGoodsReportMain">
+        SELECT
+        DISTINCT(sd.id) id,
+        sd.sale_code,
+        sd.create_at,
+        sd.is_refund,
+        s.sale_type,
+        e.code emp_code,
+        e.name emp_name,
+        g.goods_code,
+        IFNULL(s.long_amount,0) long_amount,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name,
+        sd.quantity,
+        sd.sale_price,
+        sd.total_amount,
+        sd.total_amount-sd.received_amount discount_amount,
+        ABS(sd.received_amount) deal_amount,
+        sd.is_free_of_charge,
+        IFNULL(sd.spec_amount,0) spec_amount,
+        sd.trans_terminal
+        FROM sale_detail sd
+        INNER JOIN goods g ON sd.tenant_id = g.tenant_id AND IF(sd.goods_id = 0,sd.package_id,sd.goods_id) = g.id
+        INNER JOIN sale s ON s.tenant_id=sd.tenant_id AND s.branch_id=sd.branch_id AND s.sale_code = sd.sale_code
+        INNER JOIN employee e ON s.tenant_id=sd.tenant_id AND s.branch_id=sd.branch_id AND s.cashier = e.id
+        LEFT JOIN branch b ON sd.tenant_id = b.tenant_id AND sd.branch_id = b.id
+        WHERE sd.tenant_id=${tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND sd.branch_id = #{branchId}
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND sd.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND sd.create_at &lt;= '${endDate}'
+        </if>
+        AND sd.is_deleted=0
+        AND (sd.goods_id=0 OR sd.package_id=0)
+        <if test="cateId != null and cateId!=''">
+            AND (sd.goods_id = ${cateId} OR sd.package_id=${cateId})
+        </if>
+        <if test="saleCode != null and saleCode!=''">
+            AND sd.sale_code LIKE '%${saleCode}%'
+        </if>
+        <if test="isRefund != null and isRefund!=''">
+            AND sd.is_refund = ${isRefund}
+        </if>
+        <if test="transTerminal != null and transTerminal != ''">
+            <if test="transTerminal == 1">
+                AND (sd.trans_terminal = #{transTerminal} OR sd.trans_terminal IS NULL)
+            </if>
+            <if test="transTerminal != 1">
+                AND sd.trans_terminal = #{transTerminal}
+            </if>
+        </if>
+        <if test="empCode != null and empCode!=''">
+            AND e.code = ${empCode}
+        </if>
+        <if test="cashierId !=null and cashierId !=''">
+            AND s.cashier=#{cashierId}
+        </if>
+        <if test="order==null and field==null">
+            ORDER BY sd.create_at DESC
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY sd.${field} ${order}
+        </if>
+    </sql>
+    <select id="saleGoodsReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="saleGoodsSumHead"/>
+        <include refid="saleGoodsReportMain"/>
+        <include refid="saleGoodsSumFoot"/>
+    </select>
+    <select id="saleGoodsReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="saleGoodsReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <!--支付流水-->
+    <sql id="salePaymentSumHead">
+        SELECT
+        COUNT(sale_.id) total,
+        /*SUM((CASE
+        WHEN sale_.is_refund = 0 THEN
+        (IF(sale_.is_long_amount,-1*sale_.amount,sale_.amount))
+        ELSE
+        (IF(sale_.is_long_amount,sale_.amount,-1*sale_.amount))
+        END)) amount,*/
+        SUM(sale_.amount) amount,
+	    SUM(sale_.long_amount) long_amount
+        FROM
+        (
+    </sql>
+    <sql id="salePaymentSumFoot">
+        ) sale_
+    </sql>
+    <sql id="salePaymentReportMain">
+        SELECT
+        DISTINCT(sp.id) id,
+        sp.sale_code,
+        sp.payment_at,
+        IFNULL(sp.is_refund,s.is_refund) is_refund,
+        s.sale_type,
+        e.code emp_code,
+        e.name emp_name,
+        p.payment_name,
+        p.payment_code,
+        SUM(
+        (
+        CASE
+        WHEN sp.is_refund = 0 THEN
+        (
+        IF (
+        sp.is_long_amount ,- 1 * ABS(sp.amount),
+        ABS(sp.amount)
+        )
+        )
+        ELSE
+        (
+        IF (
+        sp.is_long_amount,
+        ABS(sp.amount) ,- 1 * ABS(sp.amount)
+        )
+        )
+        END
+        )
+        ) amount,
+        SUM(
+        (
+        CASE
+        WHEN sp.is_refund = 0 THEN
+        (
+        IF (
+        sp.is_long_amount,
+        ABS(sp.amount),
+        0
+        )
+        )
+        ELSE
+        (
+        IF (
+        sp.is_long_amount ,- 1 * ABS(sp.amount),
+        0
+        )
+        )
+        END
+        )
+        ) long_amount,
+        sp.memo,
+        sp.trans_terminal,
+        SUM(IFNULL(sp.income,0)) income
+        FROM
+        sale_payment sp
+        INNER JOIN sale s ON sp.tenant_id=s.tenant_id
+        AND sp.branch_id=s.branch_id AND s.sale_code=sp.sale_code
+        AND s.is_deleted=0
+        LEFT JOIN payment p ON sp.tenant_id = p.tenant_id AND sp.payment_id = p.id
+        INNER JOIN employee e ON sp.tenant_id = e.tenant_id AND e.id = sp.cashier
+        LEFT JOIN branch b ON sp.tenant_id = b.tenant_id AND sp.branch_id = b.id
+        WHERE sp.tenant_id=#{tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND sp.branch_id = #{branchId}
+        </if>
+        AND sp.is_deleted=0
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND sp.payment_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND sp.payment_at &lt;= '${endDate}'
+        </if>
+        <if test="payId != null and payId!=''">
+            AND sp.payment_id = #{payId}
+        </if>
+        <if test="empId != null and empId!=''">
+            AND s.cashier = ${empId}
+        </if>
+        <if test="transTerminal != null and transTerminal != ''">
+            <if test="transTerminal == 1">
+                AND (sp.trans_terminal = #{transTerminal} OR sp.trans_terminal IS NULL)
+            </if>
+            <if test="transTerminal != 1">
+                AND sp.trans_terminal = #{transTerminal}
+            </if>
+        </if>
+        <if test="saleCode != null and saleCode!=''">
+            AND sp.sale_code LIKE '%${saleCode}%'
+        </if>
+        <if test="isRefund != null and isRefund!=''">
+            AND IFNULL(sp.is_refund,s.is_refund)= ${isRefund}
+        </if>
+        <if test="isManualMark != null and isManualMark!=''">
+            AND sp.is_manual_mark = #{isManualMark}
+        </if>
+        GROUP BY sp.sale_code,sp.payment_id
+        <if test="order==null and field==null">
+            ORDER BY sp.payment_at DESC
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY sp.${field} ${order}
+        </if>
+    </sql>
+    <select id="salePaymentReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="salePaymentSumHead"/>
+        <include refid="salePaymentReportMain"/>
+        <include refid="salePaymentSumFoot"/>
+    </select>
+    <select id="salePaymentReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="salePaymentReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+
+    <!--单品汇总-->
+    <sql id="singleSaleSumHead">
+        SELECT
+        count(cat_id)total,
+        IFNULL(SUM(real_amount),0) real_amount,
+        IFNULL(SUM(real_quantity),0) real_quantity,
+        IFNULL(SUM(cost_amount),0) cost_amount,
+        IFNULL(SUM(gross_profit),0) gross_profit
+        FROM
+        (
+    </sql>
+    <sql id="singleSaleSumFoot">
+        ) t
+    </sql>
+    <sql id="singleSaleReportMain">
+        SELECT dd.*,IF (dd.is_store = 1,IFNULL(st.avg_amount,dd.purchasing_price),dd.purchasing_price)*dd.real_quantity
+        cost_amount,
+        dd.real_amount-IF (dd.is_store =
+        1,IFNULL(st.avg_amount,dd.purchasing_price),dd.purchasing_price)*dd.real_quantity gross_profit,
+        IF(dd.real_amount=0,1,(dd.real_amount - IF (dd.is_store =
+        1,IFNULL(st.avg_amount,dd.purchasing_price),dd.purchasing_price) * dd.real_quantity) / dd.real_amount)
+        profit_rate
+        FROM
+        (
+        SELECT s.sale_code,s.tenant_id,s.branch_id,s.goods_id,g.goods_code,
+        IF (g.standard_name IS NULL OR g.standard_name = "",g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")) goods_name,g.bar_code,
+        g.category_id cat_id,g.is_store,IFNULL(g.purchasing_price, 0) purchasing_price,
+        SUM(IF (s.is_refund = 0,
+        IF (s.is_free_of_charge = 1,0+IFNULL(s.spec_amount,0),s.received_amount),
+        IF (s.is_free_of_charge = 1,0-IFNULL(s.spec_amount,0) ,- 1 * (s.received_amount)))) real_amount,
+        SUM(IF (s.is_refund = 0,s.quantity ,- 1 * s.quantity)) real_quantity
+        FROM
+        sale_detail s FORCE INDEX(idx_t_c)
+        LEFT JOIN goods g ON g.tenant_id = s.tenant_id
+        AND g.id=IF (s.goods_id = 0,s.package_id,s.goods_id)
+        LEFT JOIN branch b ON s.tenant_id = b.tenant_id
+        AND s.branch_id = b.id
+        WHERE
+        s.tenant_id = ${tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id IN (${branchId})
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND s.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.create_at &lt;= '${endDate}'
+        </if>
+        AND s.is_deleted = 0
+        <if test="isShowPackage == 0">
+            AND (s.package_id=0 OR (s.package_id!=0 AND s.goods_id=0))
+        </if>
+        <if test="isShowPackage == 1">
+            AND (s.package_id=0 OR (s.package_id!=0 AND s.goods_id!=0))
+        </if>
+        <if test="goodsId != null and goodsId!=''">
+            AND (s.goods_id IN (${goodsId}) OR s.package_id IN (${goodsId}) )
+        </if>
+        <if test="categoryId != null and categoryId=='-9900'">
+            AND s.goods_id=0
+        </if>
+        <if test="categoryId != null and categoryId!='' and categoryId!='-9900'">
+            AND (SELECT go.category_id FROM goods go WHERE go.id=s.goods_id) in
+            (SELECT ca.id FROM category ca WHERE ca.id = ${categoryId} OR ca.parent_id=${categoryId})
+        </if>
+        <if test="onlySelf == 1">
+            AND g.branch_id = ${branchId}
+        </if>
+        <if test="saleType != null and saleType == 0">
+            AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+        </if>
+        <if test="saleType != null and saleType == 1">
+            AND s.trans_terminal IN (5,6,7,8,9)
+        </if>
+        GROUP BY
+        g.id
+        <if test="order==null and field==null">
+            ORDER BY real_amount DESC
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY ${field} ${order}
+        </if>
+        <!--<if test="saleType != null and saleType == 1">
+            SELECT t.order_code sale_code,t.tenant_id, t.branch_id,t.goods_id,g.goods_code,
+            IF( g.standard_name IS NULL or g.standard_name="", g.goods_name,
+            concat(g.goods_name,"(",g.standard_name,")")) goods_name,g.bar_code,
+            g.category_id cat_id,g.is_store, IFNULL(g.purchasing_price,0) purchasing_price,
+            SUM(IF(t.is_refund = 0, IF(t.is_free_of_charge=1,0,t.received_amount), IF(t.is_free_of_charge = 1, 0 ,- 1 *
+            (t.received_amount)))) real_amount,
+            SUM(IF(t.is_refund = 0,t.quantity,- 1 * t.quantity)) real_quantity
+            FROM (
+            SELECT d.order_code,s.is_refund,s.is_free_of_charge,s.received_amount,s.quantity, d.tenant_id, d.branch_id,
+            s.goods_id, s.package_id
+            FROM diet_order_detail s
+            INNER JOIN diet_order_info d ON s.diet_order_info_id = d.id
+            <if test="isShowPackage == 0">
+                AND (s.package_id=0 OR s.package_id IS NULL)
+            </if>
+            <if test="isShowPackage == 1">
+                AND (s.package_id=0 OR s.package_id IS NULL OR (s.package_id!=0 AND s.goods_id!=0))
+            </if>
+            AND s.is_deleted = 0
+            AND d.tenant_id = ${tenantId}
+            AND d.branch_id IN (${branchId}) AND d.pay_status IN (1,4)
+            <if test="startDate != null and startDate != ''">
+                AND d.create_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND d.create_at &lt;= '${endDate}'
+            </if>
+            <if test="goodsId != null and goodsId!=''">
+                AND (s.goods_id IN (${goodsId}) OR s.package_id IN (${goodsId}) )
+            </if>
+            <if test="categoryId != null and categoryId=='-9900'">
+                AND s.goods_id=0
+            </if>
+            <if test="categoryId != null and categoryId!='' and categoryId!='-9900'">
+                AND (SELECT go.category_id FROM goods go WHERE go.id=s.goods_id) in
+                (SELECT ca.id FROM category ca WHERE ca.id = ${categoryId} OR ca.parent_id=${categoryId})
+            </if>
+            ) t
+            INNER JOIN goods g ON g.id=IF(t.goods_id = 0, t.package_id, t.goods_id)
+            AND t.tenant_id = g.tenant_id
+            <if test="onlySelf == 1">
+                AND g.branch_id = ${branchId}
+            </if>
+            GROUP BY g.id ORDER BY real_amount DESC
+        </if>-->
+        ) dd
+        LEFT JOIN store st ON dd.tenant_id = st.tenant_id AND dd.branch_id = st.branch_id AND dd.goods_id = st.goods_id
+        AND st.is_deleted = 0
+    </sql>
+    <select id="singleSaleReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="singleSaleSumHead"/>
+        <include refid="singleSaleReportMain"/>
+        <include refid="singleSaleSumFoot"/>
+    </select>
+    <select id="singleSaleReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="singleSaleReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+
+    <!--分类汇总-->
+    <sql id="cateSaleSumHead">
+        SELECT
+        count(cat_id)total,
+        IFNULL(SUM(real_amount),0) real_amount,
+        IFNULL(SUM(real_quantity),0) real_quantity
+        FROM
+        (
+    </sql>
+    <sql id="cateSaleSumFoot">
+        ) t
+    </sql>
+    <sql id="cateSaleReportMain">
+        <if test="flag=='first'">
+            SELECT
+            tenant_id,branch_id,cat_id,cat_name,cat_code,
+            SUM(real_amount) real_amount,SUM(real_quantity) real_quantity
+            FROM
+            (
+            SELECT s.id sale_id,g.id goods_id,s.tenant_id, s.branch_id,
+            IF (
+            s.is_refund = 0,
+            IF(s.is_free_of_charge=1,0,s.received_amount),
+            IF(s.is_free_of_charge=1,0,- 1 *
+            (s.received_amount))
+            ) real_amount,
+            IF(s.is_refund = 0, s.quantity,- 1 * s.quantity) real_quantity,
+            IF (
+            g.standard_name IS NULL or g.standard_name="",
+            g.goods_name,
+            concat(g.goods_name,"(",g.standard_name,")")
+            ) goods_name,c.cat_name c_cat_name,c.cat_code c_cat_code,
+            c.id c_id,sc.id sc_id,
+            CASE LENGTH(c.cat_code)
+            WHEN 4 THEN sc.cat_name
+            WHEN 2 THEN c.cat_name
+            ELSE '套餐'
+            END cat_name,
+            CASE LENGTH(c.cat_code)
+            WHEN 4 THEN sc.id
+            WHEN 2 THEN c.id
+            ELSE '-1'
+            END cat_id,
+            CASE LENGTH(c.cat_code)
+            WHEN 4 THEN sc.cat_code
+            WHEN 2 THEN c.cat_code
+            ELSE '-9900'
+            END cat_code
+            FROM
+            sale_detail s FORCE INDEX(idx_t_c)
+            INNER JOIN goods g ON s.tenant_id = g.tenant_id AND s.goods_id = g.id AND s.package_id = 0
+            LEFT JOIN category c ON g.tenant_id=c.tenant_id AND g.category_id = c.id
+            LEFT JOIN category sc ON sc.tenant_id=c.tenant_id AND c.parent_id = sc.id
+            LEFT JOIN branch b ON s.tenant_id = b.tenant_id AND s.branch_id = b.id
+            WHERE s.tenant_id = ${tenantId}
+            <if test="branchId != null and branchId != ''">
+                AND s.branch_id IN (${branchId})
+            </if>
+            <if test="parentId != null and parentId != ''">
+                AND b.parent_id = #{parentId}
+            </if>
+            AND s.is_deleted = 0
+            <if test="startDate != null and startDate != ''">
+                AND s.create_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND s.create_at &lt;= '${endDate}'
+            </if>
+            <if test="categoryId != null and categoryId=='-9900'">
+                AND s.goods_id=0
+            </if>
+            )t
+        </if>
+        <if test="flag=='second'">
+            SELECT
+            tenant_id, branch_id, cat_id, cat_name,cat_code,
+            SUM(real_amount) real_amount,SUM(real_quantity) real_quantity
+            FROM
+            (
+            SELECT s.id sale_id,g.id goods_id,s.tenant_id,s.branch_id,
+            IF (
+            s.is_refund = 0,
+            IF(s.is_free_of_charge=1,0,s.received_amount),
+            IF(s.is_free_of_charge=1,0,- 1 *
+            (s.received_amount))
+            ) real_amount,
+            IF(s.is_refund = 0,s.quantity, - 1 * s.quantity ) real_quantity,
+            IF (
+            g.standard_name IS NULL or g.standard_name="",
+            g.goods_name,
+            concat(g.goods_name,"(",g.standard_name,")")
+            ) goods_name,c.cat_name c_cat_name,c.cat_code c_cat_code,c.id c_id,
+            CASE LENGTH(c.cat_code)
+            WHEN 4 THEN c.cat_name
+            ELSE NULL
+            END cat_name,
+            CASE LENGTH(c.cat_code)
+            WHEN 4 THEN c.id
+            END cat_id,
+            CASE LENGTH(c.cat_code)
+            WHEN 4 THEN c.cat_code
+            END cat_code
+            FROM
+            sale_detail s FORCE INDEX(idx_t_c)
+            INNER JOIN goods g ON s.tenant_id = g.tenant_id AND s.goods_id = g.id AND s.package_id = 0
+            INNER JOIN category c ON c.tenant_id=g.tenant_id AND g.category_id = c.id AND LENGTH(c.cat_code) = 4
+            LEFT JOIN branch b ON s.tenant_id = b.tenant_id AND s.branch_id = b.id
+            WHERE s.tenant_id = ${tenantId}
+            <if test="branchId != null and branchId != ''">
+                AND s.branch_id IN (${branchId})
+            </if>
+            <if test="parentId != null and parentId != ''">
+                AND b.parent_id = #{parentId}
+            </if>
+            AND s.is_deleted = 0
+            <if test="startDate != null and startDate != ''">
+                AND s.create_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND s.create_at &lt;= '${endDate}'
+            </if>
+            )t
+        </if>
+        <if test="flag=='last'">
+            SELECT s.tenant_id,s.branch_id,
+            CASE ISNULL(c.id)
+            WHEN TRUE THEN
+            '-1'
+            ELSE c.id
+            END cat_id,
+            CASE ISNULL(c.cat_code)
+            WHEN TRUE THEN
+            '-9900'
+            ELSE c.cat_code
+            END cat_code,
+            CASE ISNULL(c.cat_name)
+            WHEN TRUE THEN
+            '套餐'
+            ELSE c.cat_name
+            END cat_name,
+            SUM(IF (
+            s.is_refund = 0,
+            IF(s.is_free_of_charge=1,0+IFNULL(s.spec_amount,0),s.received_amount),
+            IF(s.is_free_of_charge=1,0-IFNULL(s.spec_amount,0),- 1 * (s.received_amount)))) real_amount,
+            SUM(IF(s.is_refund = 0,s.quantity,- 1 * s.quantity)) real_quantity
+            FROM
+            sale_detail s FORCE INDEX(idx_t_c)
+            INNER JOIN goods g ON s.tenant_id = g.tenant_id AND s.goods_id = g.id
+            LEFT JOIN category c ON c.tenant_id=g.tenant_id AND g.category_id = c.id
+            LEFT JOIN branch b ON s.tenant_id = b.tenant_id AND s.branch_id = b.id
+            WHERE s.tenant_id = ${tenantId}
+            <if test="branchId != null and branchId != ''">
+                AND s.branch_id IN (${branchId})
+            </if>
+            <if test="parentId != null and parentId != ''">
+                AND b.parent_id = #{parentId}
+            </if>
+            AND s.is_deleted = 0
+            <if test="isShowPackage == 0">
+                AND (s.package_id=0 OR (s.package_id!=0 AND s.goods_id=0))
+            </if>
+            <if test="isShowPackage == 1">
+                AND (s.package_id=0 OR (s.package_id!=0 AND s.goods_id!=0))
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND s.create_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND s.create_at &lt;= '${endDate}'
+            </if>
+            <if test="categoryId != null and categoryId=='-9900'">
+                AND s.goods_id=0
+            </if>
+            <if test="onlySelf == 1">
+                AND g.branch_id = ${branchId}
+            </if>
+            <if test="saleType != null and saleType == 0">
+                AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+            </if>
+            <if test="saleType != null and saleType == 1">
+                AND s.trans_terminal IN (5,6,7,8,9)
+            </if>
+            <!--<if test="saleType != null and saleType == 1">
+                SELECT d.tenant_id,d.branch_id,
+                CASE ISNULL(c.id)
+                WHEN TRUE THEN
+                '-1'
+                ELSE c.id
+                END cat_id,
+                CASE ISNULL(c.cat_code)
+                WHEN TRUE THEN
+                '-9900'
+                ELSE c.cat_code
+                END cat_code,
+                CASE ISNULL(c.cat_name)
+                WHEN TRUE THEN
+                '套餐'
+                ELSE c.cat_name
+                END cat_name,
+                SUM(IF (
+                s.is_refund = 0,
+                IF(s.is_free_of_charge=1,0,s.received_amount),
+                IF(s.is_free_of_charge=1,0,- 1 *
+                (s.received_amount))
+                )) real_amount,
+                SUM(IF(s.is_refund = 0,s.quantity,- 1 * s.quantity)) real_quantity
+                FROM diet_order_detail s
+                INNER JOIN diet_order_info d ON s.diet_order_info_id = d.id
+                INNER JOIN goods g
+                ON d.tenant_id = g.tenant_id
+                AND s.goods_id = g.id
+                LEFT JOIN category c
+                ON c.tenant_id=g.tenant_id
+                AND g.category_id = c.id
+                WHERE
+                d.tenant_id = ${tenantId}
+                AND d.branch_id IN (${branchId})
+                AND s.is_deleted = 0
+                AND d.pay_status IN (1,4)
+                <if test="isShowPackage == 0">
+                    AND (s.package_id=0 OR s.package_id IS NULL)
+                </if>
+                <if test="isShowPackage == 1">
+                    AND (s.package_id=0 OR s.package_id IS NULL OR (s.package_id!=0 AND s.goods_id!=0))
+                </if>
+                <if test="startDate != null and startDate != ''">
+                    AND d.create_at &gt;= '${startDate}'
+                </if>
+                <if test="endDate != null and endDate != ''">
+                    AND d.create_at &lt;= '${endDate}'
+                </if>
+                <if test="categoryId != null and categoryId=='-9900'">
+                    AND s.goods_id=0
+                </if>
+                <if test="onlySelf == 1">
+                    AND g.branch_id = ${branchId}
+                </if>
+            </if>-->
+            <if test="categoryId != null and categoryId!='' and categoryId!='-9900'">
+                AND g.category_id in
+                (SELECT ca.id FROM category ca WHERE ca.id = ${categoryId} OR ca.parent_id=${categoryId})
+            </if>
+            GROUP BY s.tenant_id,c.id
+            <if test="order==null and field==null">
+                ORDER BY real_amount DESC
+            </if>
+            <if test="order!=null and field!=null">
+                ORDER BY ${field} ${order}
+            </if>
+        </if>
+    </sql>
+    <select id="cateSaleReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="cateSaleSumHead"/>
+        <include refid="cateSaleReportMain"/>
+        <include refid="cateSaleSumFoot"/>
+    </select>
+    <select id="cateSaleReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="cateSaleReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+
+    <!--销售趋势-->
+    <sql id="saleTrendSumHead">
+        SELECT
+        COUNT(*) total,
+        IFNULL(SUM(real_amount),0)real_amount,
+        IFNULL(SUM(sale_num),0) sale_num,
+        IFNULL(SUM(return_num),0) return_num,
+        IFNULL(SUM(real_amount)/SUM(sale_num),0) sale_unit_price
+        FROM (
+    </sql>
+    <sql id="saleTrendSumFoot">
+        ) t
+    </sql>
+    <sql id="saleTrendReportMain">
+        <if test="trendType=='day'">
+            SELECT sale_.*,sale_.real_amount / sale_.sale_num sale_unit_price
+            FROM
+            (SELECT s.tenant_id,s.branch_id,DATE_FORMAT(s.checkout_at, '%Y-%m-%d') checkout_at,
+            SUM(IF(s.is_refund = 0,s.received_amount,
+            - 1 * (s.received_amount))) real_amount,
+            SUM(IF(s.is_refund = 0, 1, 0)) sale_num,
+            SUM(IF(s.is_refund = 1, 1, 0)) return_num
+            FROM sale s FORCE INDEX(idx_te_ch)
+            LEFT JOIN branch b ON s.tenant_id = b.tenant_id AND s.branch_id = b.id
+            WHERE s.tenant_id = ${tenantId}
+            <if test="branchId != null and branchId != ''">
+                AND s.branch_id IN (${branchId})
+            </if>
+            <if test="parentId != null and parentId != ''">
+                AND b.parent_id = #{parentId}
+            </if>
+            AND s.is_deleted = 0
+            <if test="startDate != null and startDate != ''">
+                AND s.checkout_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND s.checkout_at &lt;= '${endDate}'
+            </if>
+            <if test="saleType != null and saleType == 0">
+                AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+            </if>
+            <if test="saleType != null and saleType == 1">
+                AND s.trans_terminal IN (5,6,7,8,9)
+            </if>
+            GROUP BY s.tenant_id, DATE_FORMAT(s.checkout_at, '%Y-%m-%d')) sale_
+        </if>
+        <if test="trendType=='month'">
+            SELECT sale_.*,sale_.real_amount / sale_.sale_num sale_unit_price
+            FROM
+            (SELECT s.tenant_id,s.branch_id,DATE_FORMAT(s.checkout_at, '%Y-%m') checkout_at,
+            SUM(IF(s.is_refund = 0,s.received_amount,
+            - 1 * ( s.received_amount))) real_amount,
+            SUM(IF(s.is_refund = 0, 1, 0)) sale_num,
+            SUM(IF(s.is_refund = 1, 1, 0)) return_num
+            FROM sale s FORCE INDEX(idx_te_ch)
+            LEFT JOIN branch b ON s.tenant_id = b.tenant_id AND s.branch_id = b.id
+            WHERE s.tenant_id = ${tenantId}
+            <if test="branchId != null and branchId != ''">
+                AND s.branch_id IN (${branchId})
+            </if>
+            <if test="parentId != null and parentId != ''">
+                AND b.parent_id = #{parentId}
+            </if>
+            AND s.is_deleted = 0
+            <if test="startDate != null and startDate != ''">
+                AND s.checkout_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND s.checkout_at &lt;= '${endDate}'
+            </if>
+            <if test="saleType != null and saleType == 0">
+                AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+            </if>
+            <if test="saleType != null and saleType == 1">
+                AND s.trans_terminal IN (5,6,7,8,9)
+            </if>
+            GROUP BY s.tenant_id, DATE_FORMAT(s.checkout_at, '%Y-%m')) sale_
+        </if>
+        <if test="trendType=='hour'">
+            SELECT sale_.*,sale_.real_amount / sale_.sale_num sale_unit_price,
+            LPAD(CAST(sale_.checkout_at AS SIGNED) + 1,2,'0') AS date_interval
+            FROM
+            (SELECT s.tenant_id,s.branch_id,LPAD(CAST(DATE_FORMAT(s.checkout_at, '%k') AS SIGNED),2,'0')
+            checkout_at,
+            SUM(IF(s.is_refund = 0,s.received_amount,
+            - 1 * ( s.received_amount))) real_amount,
+            SUM(IF(s.is_refund = 0, 1, 0)) sale_num,
+            SUM(IF(s.is_refund = 1, 1, 0)) return_num
+            FROM sale s FORCE INDEX(idx_te_ch)
+            LEFT JOIN branch b ON s.tenant_id = b.tenant_id AND s.branch_id = b.id
+            WHERE s.tenant_id = ${tenantId}
+            <if test="branchId != null and branchId != ''">
+                AND s.branch_id IN (${branchId})
+            </if>
+            <if test="parentId != null and parentId != ''">
+                AND b.parent_id = #{parentId}
+            </if>
+            AND s.is_deleted = 0
+            <if test="startDate != null and startDate != ''">
+                AND s.checkout_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND s.checkout_at &lt;= '${endDate}'
+            </if>
+            <if test="saleType != null and saleType == 0">
+                AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+            </if>
+            <if test="saleType != null and saleType == 1">
+                AND s.trans_terminal IN (5,6,7,8,9)
+            </if>
+            GROUP BY s.tenant_id, DATE_FORMAT(s.checkout_at, '%k')) sale_
+        </if>
+        <if test="order==null and field==null">
+            <if test="flag=='pc'">
+                ORDER BY checkout_at ASC
+            </if>
+            <if test="flag=='wx'">
+                ORDER BY real_amount DESC
+            </if>
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY ${field} ${order}
+        </if>
+    </sql>
+    <select id="saleTrendReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="saleTrendSumHead"/>
+        <include refid="saleTrendReportMain"/>
+        <include refid="saleTrendSumFoot"/>
+    </select>
+    <select id="saleTrendReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="saleTrendReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <!--营业日报-->
+    <select id="businessReport" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        pos_refund_.pos_refund_count,
+        pos_refund_.pos_refund_amount,
+        pos_sale_.pos_sale_count,
+        pos_sale_.pos_sale_amount,
+        pos_dis_.pos_dis_count,
+        pos_dis_.pos_dis_amount,
+        wx_refund_.wx_refund_count,
+        wx_refund_.wx_refund_amount,
+        wx_sale_.wx_sale_count,
+        wx_sale_.wx_sale_amount,
+        wx_dis_.wx_dis_count,
+        wx_dis_.wx_dis_amount,
+        /*pos_sale_.pos_sale_amount+wx_sale_.wx_sale_amount-pos_refund_.pos_refund_amount-wx_refund_.wx_refund_amount*/
+        pos_sale_.pos_sale_amount-pos_refund_.pos_refund_amount
+        total_amount,
+        /*pos_sale_.pos_sale_count+wx_sale_.wx_sale_count total_count,*/
+        pos_sale_.pos_sale_count total_count,
+        /*IF(pos_sale_.pos_sale_count+wx_sale_.wx_sale_count=0,0,
+        (pos_sale_.pos_sale_amount+wx_sale_.wx_sale_amount-pos_refund_.pos_refund_amount-wx_refund_.wx_refund_amount)/(pos_sale_.pos_sale_count+wx_sale_.wx_sale_count))*/
+        IF(pos_sale_.pos_sale_count=0,0,
+        (pos_sale_.pos_sale_amount-pos_refund_.pos_refund_amount)/(pos_sale_.pos_sale_count))
+        average_price
+        FROM
+        (SELECT SUM(IF(sa.is_refund=0,1,0)) pos_dis_count,
+        IF (
+        COUNT(sa.id) = 0,
+        0,
+        SUM(
+        IF(sa.is_refund=0,sa.discount_amount + sa.give_amount,-1*(sa.discount_amount + sa.give_amount))
+        )
+        ) pos_dis_amount
+        FROM sale sa
+        WHERE sa.tenant_id=${tenantId}
+        AND sa.branch_id=${branchId}
+        <if test="startDate != null and startDate != ''">
+            AND sa.checkout_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND sa.checkout_at &lt;= '${endDate} 23:59:59'
+        </if>
+        AND (sa.discount_amount!=0 or sa.give_amount!=0)
+        ) pos_dis_
+        INNER JOIN
+        (SELECT
+        COUNT(s.id) pos_refund_count,
+        IF(COUNT(s.id)=0,0,SUM(s.received_amount)) pos_refund_amount
+        FROM sale s
+        WHERE
+        s.tenant_id=${tenantId} AND s.branch_id=${branchId}
+        <if test="startDate != null and startDate != ''">
+            AND s.checkout_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.checkout_at &lt;= '${endDate} 23:59:59'
+        </if>
+        AND s.is_deleted=0
+        AND s.is_refund=1
+        ) pos_refund_
+        INNER JOIN
+        (SELECT
+        COUNT(s.id) pos_sale_count,
+        IF(COUNT(s.id)=0,0,SUM(s.received_amount)) pos_sale_amount
+        FROM sale s
+        WHERE s.tenant_id=${tenantId} AND s.branch_id=${branchId}
+        <if test="startDate != null and startDate != ''">
+            AND s.checkout_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.checkout_at &lt;= '${endDate} 23:59:59'
+        </if>
+        AND s.is_deleted=0
+        AND s.is_refund=0
+        ) pos_sale_
+        INNER JOIN
+        (SELECT COUNT(di.id) wx_dis_count,
+        IF(COUNT(di.id)=0,0,SUM(di.received_amount-di.total_amount)) wx_dis_amount
+        FROM diet_order_info di
+        WHERE di.tenant_id=${tenantId}
+        AND di.branch_id=${branchId}
+        <if test="startDate != null and startDate != ''">
+            AND di.create_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND di.create_at &lt;= '${endDate} 23:59:59'
+        </if>
+        and di.pay_status=1 and !(di.order_mode=4 and (di.pay_way is null or di.pay_way=0))
+        AND (di.received_amount-di.total_amount)!=0
+        ) wx_dis_
+        INNER JOIN
+        (SELECT
+        count(d.id) wx_refund_count,
+        IF(count(d.id)=0,0,SUM(d.received_amount)) wx_refund_amount
+        FROM diet_order_info d
+        WHERE d.tenant_id=${tenantId}
+        and d.branch_id=${branchId}
+        <if test="startDate != null and startDate != ''">
+            AND d.create_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND d.create_at &lt;= '${endDate} 23:59:59'
+        </if>
+        and d.is_deleted=0
+        and d.is_refund=1 and !(d.order_mode=4 and (d.pay_way is null or d.pay_way=0))
+        and d.pay_status=1
+        ) wx_refund_
+        INNER JOIN
+        (SELECT
+        count(d.id) wx_sale_count,
+        IF(count(d.id)=0,0,SUM(d.received_amount)) wx_sale_amount
+        FROM diet_order_info d
+        WHERE d.tenant_id=${tenantId} and d.branch_id=${branchId}
+        <if test="startDate != null and startDate != ''">
+            AND d.create_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND d.create_at &lt;= '${endDate} 23:59:59'
+        </if>
+        and d.is_deleted=0
+        and d.is_refund=0 and !(d.order_mode=4 and (d.pay_way is null or d.pay_way=0))
+        and d.pay_status=1
+        ) wx_sale_
+    </select>
+    <select id="pushData" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        SUM(IF(s.is_refund=0,ABS(s.received_amount),-1*ABS(s.received_amount))) total_amount,
+        SUM(IF(s.is_refund=0,1,0)) total_count,
+        IF(SUM(IF(s.is_refund=0,1,0))=0,0,SUM(IF(s.is_refund=0,ABS(s.received_amount),-1*ABS(s.received_amount)))/SUM(IF(s.is_refund=0,1,0))) average_price,
+        s.tenant_id,
+        s.branch_id
+        from sale s WHERE
+        s.checkout_at&gt;='${startDate} 00:00:00'
+        AND s.checkout_at&lt;='${endDate} 23:59:59'
+        GROUP BY tenant_id,branch_id;
+    </select>
+    <!--机构报表(旧)-->
+    <select id="branchReportOld" resultType="mapUnderscoreToCamelCase" resultMap="list1,list2" statementType="CALLABLE">
+        CALL proc_branch_report(${tenantId},'${branchSql}','${startDate}',
+        '${endDate}',${offset},${rows}
+        )
+    </select>
+    <select id="branchReport" resultType="mapUnderscoreToCamelCase">
+        SELECT b.code, b.id, b.name, IFNULL(d1.total_amount,0) total_amount, IFNULL(d1.total_count,0) total_count,
+        IFNULL(IFNULL(d1.total_amount,0)/IFNULL(d1.total_count,0),0) average,
+        IFNULL(d2.trade_amount,0) vip_trade_amount, IFNULL(d3.store_amount,0) vip_store_amount
+        ,IFNULL(d4.stored_payment,0) stored_payment FROM
+        (SELECT * FROM branch b WHERE b.tenant_id = #{tenantId} AND b.is_deleted = 0
+        <if test="(areaId == null or areaId == '') and branchId != null and branchId != ''">
+            AND id = #{branchId}
+        </if>
+        <if test="areaId != null and areaId != ''">
+            AND (b.area_id IN(${areaId}) OR b.id = #{branchId})
+        </if>
+        <if test="nameOrCode != null and nameOrCode != ''">
+            AND (b.name LIKE '%${nameOrCode}%' OR b.code LIKE '%${nameOrCode}%')
+        </if>
+        ) b
+        LEFT JOIN
+        (SELECT s.branch_id, SUM(IF(s.is_refund = 1,-ABS(s.received_amount), ABS(s.received_amount))) total_amount,
+        SUM(IF(s.is_refund = 1,0,1)) AS total_count
+        FROM sale s
+        WHERE s.tenant_id = #{tenantId} AND s.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND s.checkout_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.checkout_at &lt;= #{endDate}
+        </if>
+        <if test="saleType != null and saleType ==0">
+            AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+        </if>
+        <if test="saleType != null and saleType ==1">
+            AND s.trans_terminal IN (5,6,7,8,9)
+        </if>
+        GROUP BY s.branch_id) d1 ON b.id = d1.branch_id
+        LEFT JOIN
+        (SELECT vt.trade_branch_id, SUM(IF(vt.trade_type=4 OR vt.trade_type=5,-(IF(vt.trade_no LIKE
+        'WX%',IFNULL(vt.trade_amount,0) + IFNULL(vt.integral_amount,0), IFNULL(vt.trade_amount,0))),
+        (IF(vt.trade_no LIKE 'WX%',IFNULL(vt.trade_amount,0) + IFNULL(vt.integral_amount,0),
+        IFNULL(vt.trade_amount,0))))) trade_amount FROM
+        vip_trade_history vt
+        WHERE vt.tenant_id = #{tenantId} AND vt.is_deleted = 0 AND vt.trade_type IN(1, 3, 4, 5)
+        <if test="startDate != null and startDate != ''">
+            AND vt.trade_date &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vt.trade_date &lt;= #{endDate}
+        </if>
+        GROUP BY vt.trade_branch_id
+        ) d2 ON b.id = d2.trade_branch_id
+        LEFT JOIN
+        (SELECT vs.store_branch_id, SUM(IF(vs.store_type=2 OR vs.store_type=5,-vs.pay_amount,vs.pay_amount)) store_amount FROM
+        vip_store_history vs
+        WHERE vs.tenant_id = #{tenantId} AND vs.is_deleted = 0 AND vs.store_type IN (1,2,5)
+        <if test="startDate != null and startDate != ''">
+            AND vs.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vs.create_at &lt;= #{endDate}
+        </if>
+        GROUP BY vs.store_branch_id
+        ) d3 ON b.id = d3.store_branch_id
+        LEFT JOIN (
+        SELECT
+        vsh.store_branch_id,
+        SUM(IF(vsh.store_type=3,vsh.pay_amount,-vsh.pay_amount)) stored_payment
+        FROM
+        vip_store_history vsh
+        WHERE
+        vsh.tenant_id=#{tenantId}
+        AND vsh.is_deleted=0
+        AND vsh.store_type IN(3,4)
+        <if test="startDate != null and startDate != ''">
+            AND vsh.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vsh.create_at &lt;= #{endDate}
+        </if>
+        GROUP BY
+        vsh.store_branch_id
+        )d4
+        ON b.id = d4.store_branch_id
+        <if test="order!=null and field!=null">
+            ORDER BY b.${field} ${order}
+        </if>
+        <if test="offset != null and rows != null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="branchReportSum" resultType="mapUnderscoreToCamelCase">
+        SELECT count(1) total, IFNULL(SUM(t.total_amount),0) total_amount, IFNULL(SUM(t.total_count),0) total_count,
+        IFNULL((SUM(t.total_amount)/SUM(t.total_count)), 0) average,
+        IFNULL(SUM(t.trade_amount),0) vip_trade_amount, IFNULL(SUM(t.store_amount),0)
+        vip_store_amount,IFNULL(SUM(t.stored_payment),0) stored_payment FROM (
+        SELECT b.id, b.name, IFNULL(d1.total_amount,0) total_amount, IFNULL(d1.total_count,0) total_count,
+        IFNULL(IFNULL(d1.total_amount,0)/IFNULL(d1.total_count,0),0) average,
+        IFNULL(d2.trade_amount,0) trade_amount, IFNULL(d3.store_amount,0) store_amount,IFNULL(d4.stored_payment,0)
+        stored_payment FROM
+        (SELECT * FROM branch b WHERE b.tenant_id = #{tenantId} AND b.is_deleted = 0
+        <if test="(areaId == null or areaId == '') and branchId != null and branchId != ''">
+            AND id = #{branchId}
+        </if>
+        <if test="areaId != null and areaId != ''">
+            AND (b.area_id IN(${areaId}) OR b.id = #{branchId})
+        </if>
+        <if test="nameOrCode != null and nameOrCode != ''">
+            AND (b.name LIKE '%${nameOrCode}%' OR b.code LIKE '%${nameOrCode}%')
+        </if>
+        ) b
+        LEFT JOIN
+        (SELECT s.branch_id, SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) total_amount,
+        SUM(IF(s.is_refund = 1,0,1)) AS total_count
+        FROM sale s
+        WHERE s.tenant_id = #{tenantId} AND s.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND s.checkout_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.checkout_at &lt;= #{endDate}
+        </if>
+        <if test="saleType != null and saleType ==0">
+            AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+        </if>
+        <if test="saleType != null and saleType ==1">
+            AND s.trans_terminal IN (5,6,7,8,9)
+        </if>
+        GROUP BY s.branch_id) d1 ON b.id = d1.branch_id
+        LEFT JOIN
+        (SELECT vt.trade_branch_id, SUM(IF(vt.trade_type=4 OR vt.trade_type=5,-(IF(vt.trade_no LIKE
+        'WX%',IFNULL(vt.trade_amount,0) + IFNULL(vt.integral_amount,0), IFNULL(vt.trade_amount,0))),
+        (IF(vt.trade_no LIKE 'WX%',IFNULL(vt.trade_amount,0) + IFNULL(vt.integral_amount,0),
+        IFNULL(vt.trade_amount,0))))) trade_amount FROM
+        vip_trade_history vt
+        WHERE vt.tenant_id = #{tenantId} AND vt.is_deleted = 0 AND vt.trade_type IN(1, 3, 4, 5)
+        <if test="startDate != null and startDate != ''">
+            AND vt.trade_date &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vt.trade_date &lt;= #{endDate}
+        </if>
+        GROUP BY vt.trade_branch_id
+        ) d2 ON b.id = d2.trade_branch_id
+        LEFT JOIN
+        (SELECT vs.store_branch_id, SUM(IF(vs.store_type=2 OR vs.store_type=5,-vs.pay_amount,vs.pay_amount)) store_amount FROM
+        vip_store_history vs
+        WHERE vs.tenant_id = #{tenantId} AND vs.is_deleted = 0 AND vs.store_type IN (1,2,5)
+        <if test="startDate != null and startDate != ''">
+            AND vs.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vs.create_at &lt;= #{endDate}
+        </if>
+        GROUP BY vs.store_branch_id
+        ) d3 ON b.id = d3.store_branch_id
+        LEFT JOIN (
+        SELECT
+        vsh.store_branch_id,
+        SUM(IF(vsh.store_type=3,vsh.pay_amount,-vsh.pay_amount)) stored_payment
+        FROM
+        vip_store_history vsh
+        WHERE
+        vsh.tenant_id=#{tenantId}
+        AND vsh.is_deleted=0
+        AND vsh.store_type IN(3,4)
+        <if test="startDate != null and startDate != ''">
+            AND vsh.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vsh.create_at &lt;= #{endDate}
+        </if>
+        GROUP BY
+        vsh.store_branch_id
+        )d4
+        ON b.id = d4.store_branch_id
+
+        ) t
+    </select>
+    <!--门店支付方式汇总报表开始-->
+    <select id="paymentMethodWays" resultType="mapUnderscoreToCamelCase">
+        SELECT DISTINCT
+        (sp.payment_id),
+        pm.payment_code,
+        pm.payment_name
+        FROM
+        sale_payment sp
+        INNER JOIN payment pm ON sp.tenant_id = pm.tenant_id
+        AND sp.payment_id = pm.id
+        WHERE sp.tenant_id =${tenantId}
+        <if test="paymentCode != null and paymentCode != ''">
+            AND pm.id=#{paymentCode}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND sp.payment_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND sp.payment_at &lt;= '${endDate}'
+        </if>
+        <!-- AND sp.is_deleted = 0 -->
+    </select>
+
+    <sql id="paymentMethodSumHead">
+        SELECT COUNT(a.branch_id) total ,SUM(a.total_amount) total_amount,SUM(a.total_count) total_count,
+        IFNULL((SUM(a.total_amount)/SUM(a.total_count)), 0) average,
+        SUM(a.long_amount) long_amount
+        <foreach collection="payWays" item="item">
+            ,SUM(a.${item.paymentId}) '${item.paymentId}'
+            ,SUM(a.${item.paymentId}_long_amount) '${item.paymentId}_long_amount'
+        </foreach>
+        FROM (
+    </sql>
+    <sql id="paymentMethodReportMain">
+        SELECT tmp.branch_id, tmp.code, tmp.name, SUM(IF(tmp.is_refund = 1, 0, 1)) AS total_count,
+        IF(count(*) = 0, 0, SUM(tmp.total_amount)/SUM(IF(tmp.is_refund = 1, 0, 1))) AS average,SUM(tmp.total_amount) AS total_amount,SUM(tmp.long_amount) long_amount
+        <foreach collection="payWays" item="item">
+            ,SUM(tmp.${item.paymentId}) '${item.paymentId}'
+            ,SUM(tmp.${item.paymentId}_long_amount) '${item.paymentId}_long_amount'
+        </foreach>
+        FROM(
+        SELECT p.branch_id branch_id,b.code,b.name, SUM(IF(p.is_refund =
+        1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))))
+        total_amount,
+        SUM(IF(p.is_long_amount = 1,IF(p.is_refund = 1,-1*ABS(p.amount),ABS(p.amount)),0)) long_amount, p.is_refund
+        <foreach collection="payWays" item="pay">
+            ,SUM(IF( LOWER(t.payment_code) = '${pay.paymentCode}'AND t.id='${pay.paymentId}' , IF(p.is_refund =
+            1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))
+            ),0)) '${pay.paymentId}',
+            SUM(IF(p.is_long_amount = 1 AND LOWER(t.payment_code) = '${pay.paymentCode}',
+            IF(p.is_refund = 1,-1*ABS(p.amount),ABS(p.amount)),0)) '${pay.paymentId}_long_amount'
+        </foreach>
+        FROM
+        sale_payment p
+        INNER JOIN payment t ON p.tenant_id = t.tenant_id AND p.payment_id = t.id
+        AND p.tenant_id=${tenantId} AND p.is_deleted=0
+        INNER JOIN branch b  ON p.branch_id=b.id
+        <if test="startDate != null and startDate != ''">
+            AND p.payment_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND p.payment_at &lt;= '${endDate}'
+        </if>
+        <if test="payType != null and payType != ''">
+            <if test="payType == 1">
+                AND (p.pay_type = #{payType} OR p.pay_type IS NULL)
+            </if>
+            <if test="payType != 1">
+                AND p.pay_type = #{payType}
+            </if>
+        </if>
+        <if test="(areaId == null or areaId == '') and branchId != null and branchId != ''">
+            AND b.id = #{branchId}
+        </if>
+        <if test="areaId != null and areaId != ''">
+            AND (b.area_id IN(${areaId}) OR b.id = #{branchId})
+        </if>
+        <if test="branchName !=null and branchName !=''">
+            AND (b.name like CONCAT(CONCAT('%',#{branchName},'%')) OR b.code=#{branchName}) AND b.tenant_id=#{tenantId}
+        </if>
+        GROUP BY p.sale_code
+        HAVING 1=1
+        ORDER BY p.branch_id
+        ) tmp GROUP BY tmp.branch_id
+    </sql>
+    <select id="paymentMethodReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="paymentMethodReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="paymentMethodReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="paymentMethodSumHead"/>
+        <include refid="paymentMethodReportMain"/>
+        <include refid="dayPaySumFoot"/>
+    </select>
+    <!--门店支付方式汇总报表结束-->
+    <!--线上订单报表-->
+    <select id="dietOrderReport" resultType="mapUnderscoreToCamelCase">
+        SELECT b.id, SUM(IF(is_refund=1,IFNULL(-received_amount,0),IFNULL(received_amount,0))) total_amount, COUNT(CASE
+        WHEN d.is_refund = 0 THEN d.id END) total_count
+        FROM branch b
+        INNER JOIN diet_order_info d ON b.id = d.branch_id
+        WHERE b.is_deleted = 0 AND d.is_deleted = 0 AND d.pay_status IN (1,4) AND d.tenant_id = ${tenantId}
+        <if test="areaId != null and areaId != ''">
+            AND b.area_id IN (${allAreaId})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND d.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND d.create_at &lt;='${endDate}'
+        </if>
+        <if test="nameOrCode != null and nameOrCode != ''">
+            AND (b.name LIKE '%${nameOrCode}%' OR b.code LIKE '%${nameOrCode}%')
+        </if>
+        GROUP BY d.branch_id
+    </select>
+    <select id="dietOrderSumReport" resultType="mapUnderscoreToCamelCase">
+        SELECT IFNULL(SUM(t.total_amount),0) total_amount, IFNULL(SUM(t.total_count),0) total_count FROM (
+        SELECT b.id, SUM(IF(is_refund=1,IFNULL(-received_amount,0),IFNULL(received_amount,0))) total_amount, COUNT(CASE
+        WHEN d.is_refund = 0 THEN d.id END) total_count
+        FROM branch b
+        INNER JOIN diet_order_info d ON b.id = d.branch_id
+        WHERE b.is_deleted = 0 AND d.is_deleted = 0 AND d.pay_status IN (1,4) AND d.tenant_id = ${tenantId}
+        <if test="areaId != null and areaId != ''">
+            AND b.area_id IN (${allAreaId})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND d.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND d.create_at &lt;='${endDate}'
+        </if>
+        <if test="nameOrCode != null and nameOrCode != ''">
+            AND (b.name LIKE '%${nameOrCode}%' OR b.code LIKE '%${nameOrCode}%')
+        </if>
+        GROUP BY d.branch_id) t
+    </select>
+    <resultMap type="mapUnderscoreToCamelCase" id="list1">
+        <result column="id" property="id" jdbcType="BIGINT" javaType="BigInteger"/>
+    </resultMap>
+
+    <resultMap type="mapUnderscoreToCamelCase" id="list2">
+        <result column="total" property="total" jdbcType="DECIMAL" javaType="BigDecimal"/>
+    </resultMap>
+    <select id="areaList" resultType="mapUnderscoreToCamelCase">
+        select getAreaChildLst(${areaId}) as ids;
+    </select>
+    <!--第一级区域-->
+    <select id="firstAreaList" resultType="mapUnderscoreToCamelCase">
+        SELECT id FROM area WHERE parent_id = #{areaId} AND tenant_id = ${tenantId} AND is_deleted = 0
+    </select>
+    <!--收款对账-->
+    <sql id="paySumHead">
+        SELECT COUNT(a.name) total ,SUM(a.total_amount) total_amount,
+        SUM(a.long_amount) long_amount
+        <foreach collection="payWays" item="item">
+            ,SUM(a.${item.paymentCode}) '${item.paymentCode}'
+            ,SUM(a.${item.paymentCode}_long_amount) '${item.paymentCode}_long_amount'
+            ,SUM(a.${item.paymentCode}_income) '${item.paymentCode}_income'
+        </foreach>
+        FROM (
+    </sql>
+    <sql id="paySumFoot">
+        ) a
+    </sql>
+    <sql id="payReportMain">
+        SELECT p.cashier,e.code, e.name,p.payment_code, SUM(IF(p.is_refund =
+        1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))))
+        total_amount,
+        SUM(IF(p.is_long_amount = 1,IF(p.is_refund = 1,-1*ABS(p.amount),ABS(p.amount)),0)) long_amount
+        <foreach collection="payWays" item="pay">
+            ,SUM(IF( LOWER(t.payment_code) = '${pay.paymentCode}', IF(p.is_refund =
+            1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))
+            ),0)) '${pay.paymentCode}',
+            SUM(IF(p.is_long_amount = 1 AND LOWER(t.payment_code) = '${pay.paymentCode}',
+            IF(p.is_refund = 1,-1*ABS(p.amount),ABS(p.amount)),0)) '${pay.paymentCode}_long_amount',
+            SUM(IF(LOWER(t.payment_code) = '${pay.paymentCode}',
+            IF(p.is_refund = 1,-1*ABS(p.income),ABS(p.income)),0)) '${pay.paymentCode}_income'
+        </foreach>
+        FROM
+        sale_payment p
+        INNER JOIN employee e ON p.tenant_id = e.tenant_id AND p.cashier = e.id
+        INNER JOIN payment t ON p.tenant_id = t.tenant_id AND p.payment_id = t.id
+        LEFT JOIN branch b on p.tenant_id = b.tenant_id AND p.branch_id = b.id
+        WHERE p.tenant_id=#{tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND p.branch_id=#{branchId}
+        </if>
+        <if test="parentId != null and parentId != null">
+            AND b.parent_id = #{parentId}
+        </if>
+        AND p.is_deleted=0
+        <if test="startDate != null and startDate != ''">
+            AND p.payment_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND p.payment_at &lt;= '${endDate}'
+        </if>
+        <if test="cashierId != null and cashierId!=''">
+            AND p.cashier =${cashierId}
+        </if>
+        <if test="payType != null and payType != ''">
+            <if test="payType == 1">
+                AND (p.pay_type = #{payType} OR p.pay_type IS NULL)
+            </if>
+            <if test="payType != 1">
+                AND p.pay_type = #{payType}
+            </if>
+        </if>
+        GROUP BY p.cashier
+        HAVING 1=1
+        <if test="order==null and field==null">
+            ORDER BY total_amount DESC
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY sd.${field} ${order}
+        </if>
+    </sql>
+    <select id="payReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="paySumHead"/>
+        <include refid="payReportMain"/>
+        <include refid="paySumFoot"/>
+    </select>
+    <select id="payReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="payReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <!--收款日对账报表-->
+    <sql id="dayPaySumHead">
+        SELECT COUNT(a.payment_at) total ,SUM(a.total_amount) total_amount,
+        SUM(a.long_amount) long_amount
+        <foreach collection="payWays" item="item">
+            ,SUM(a.${item.paymentCode}) '${item.paymentCode}'
+            ,SUM(a.${item.paymentCode}_long_amount) '${item.paymentCode}_long_amount'
+            ,SUM(a.${item.paymentCode}_income) '${item.paymentCode}_income'
+        </foreach>
+        FROM (
+    </sql>
+    <sql id="dayPaySumFoot">
+        ) a
+    </sql>
+    <sql id="dayPayReportMain">
+        SELECT DATE_FORMAT(p.payment_at,'%y-%m-%d') payment_at, SUM(IF(p.is_refund =
+        1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))))
+        total_amount,
+        SUM(IF(p.is_long_amount = 1,IF(p.is_refund = 1,-1*ABS(p.amount),ABS(p.amount)),0)) long_amount
+        <foreach collection="payWays" item="pay">
+            ,SUM(IF( LOWER(t.payment_code) = '${pay.paymentCode}', IF(p.is_refund =
+            1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))
+            ),0)) '${pay.paymentCode}',
+            SUM(IF(p.is_long_amount = 1 AND LOWER(t.payment_code) = '${pay.paymentCode}',
+            IF(p.is_refund = 1,-1*ABS(p.amount),ABS(p.amount)),0)) '${pay.paymentCode}_long_amount',
+            SUM(IF(LOWER(t.payment_code) = '${pay.paymentCode}',
+            IF(p.is_refund = 1,-1*ABS(p.income),ABS(p.income)),0)) '${pay.paymentCode}_income'
+        </foreach>
+        FROM
+        sale_payment p
+        INNER JOIN payment t ON p.tenant_id = t.tenant_id AND p.payment_id = t.id
+        LEFT JOIN branch b ON p.tenant_id = b.tenant_id AND p.branch_id = b.id
+        WHERE p.tenant_id=#{tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND p.branch_id=#{branchId}
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        AND p.is_deleted=0
+        <if test="startDate != null and startDate != ''">
+            AND p.payment_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND p.payment_at &lt;= '${endDate}'
+        </if>
+        <if test="payType != null and payType != ''">
+            <if test="payType == 1">
+                AND (p.pay_type = #{payType} OR p.pay_type IS NULL)
+            </if>
+            <if test="payType != 1">
+                AND p.pay_type = #{payType}
+            </if>
+        </if>
+        GROUP BY DATE_FORMAT(p.payment_at,'%y-%m-%d')
+        HAVING 1=1
+        <if test="order==null and field==null">
+            ORDER BY payment_at
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY sd.${field} ${order}
+        </if>
+    </sql>
+    <!--储值对账报表sql片段开始-->
+    <sql id="storedValue">
+        SELECT IFNULL(sum(CASE b.store_type WHEN 1 THEN b.pay_amount WHEN 2 THEN -b.pay_amount WHEN 3 THEN -b.pay_amount
+        WHEN 4 THEN b.pay_amount WHEN 5 THEN -b.pay_amount ELSE 0 END),0) pay_amount,
+        b.payment_name,
+        b.create_at,
+        b.create_by,
+        b.store_from from (
+        SELECT
+        DISTINCT a.id,a.pay_amount pay_amount,
+        t.id ids,
+        t.payment_name,
+        a.create_at,
+        a.create_by,
+        a.store_type,
+        a.store_from FROM vip_store_history a
+        LEFT JOIN (
+        SELECT tenant_payment_id id,payment_code,payment_name FROM payment_branch
+        WHERE tenant_id = #{tenantId} AND branch_id=#{branchId}
+        UNION ALL
+        SELECT id,payment_code,payment_name FROM payment
+        WHERE tenant_id = #{tenantId} AND branch_id=#{branchId} )t
+        ON a.payment_id=t.id
+        LEFT JOIN branch b ON a.tenant_id = b.tenant_id AND a.store_branch_id = b.id
+        <where>
+            <if test="startDate != null and startDate != ''">
+                AND a.create_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND a.create_at &lt;= '${endDate}'
+            </if>
+            <if test="cashierId !=null and cashierId !=''">
+                AND a.create_by=#{cashierId}
+            </if>
+            <if test="storeFrom != null">
+                AND a.store_from =#{storeFrom}
+            </if>
+            AND a.store_type in (1,2,5)
+            <if test="storeBranchId != null and storeBranchId != ''">
+                AND a.store_branch_id=#{storeBranchId}
+            </if>
+            <if test="parentId != null and parentId != ''">
+                AND b.parent_id = #{parentId}
+            </if>
+        </where>
+        )b
+        GROUP BY b.ids
+    </sql>
+    <!--当前查询总的条数和合计值-->
+    <sql id="storedValueTotal">
+        select count(1) as total,sum(pay_amount) as pay_amount  from (
+    </sql>
+    <!--储值对账报表sql片段结束-->
+    <!--储值对账Sql语句开始-->
+    <select id="storedValueReport" parameterType="Map" resultType="mapUnderscoreToCamelCase">
+        <include refid="storedValue"/>
+        <include refid="pageFoot"/>
+    </select>
+    <!--总条数和合计值-->
+    <select id="storedValueReportTotalSum" parameterType="Map" resultType="mapUnderscoreToCamelCase">
+        <include refid="storedValueTotal"/>
+        <include refid="storedValue"/>
+        <include refid="dayPaySumFoot"/>
+    </select>
+    <!--储值对账Sql语句结束-->
+    <select id="dayPayReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="dayPayReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="dayPayReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="dayPaySumHead"/>
+        <include refid="dayPayReportMain"/>
+        <include refid="dayPaySumFoot"/>
+    </select>
+    <select id="payWays" resultType="mapUnderscoreToCamelCase">
+        SELECT DISTINCT(sp.payment_id),pm.payment_code,pm.payment_name
+        FROM sale_payment sp
+        INNER JOIN payment pm ON sp.tenant_id = pm.tenant_id AND sp.payment_id=pm.id
+        WHERE sp.tenant_id=${tenantId}
+        AND sp.branch_id=#{branchId}
+        AND sp.is_deleted=0
+        <if test="startDate != null and startDate != ''">
+            AND sp.payment_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND sp.payment_at &lt;= '${endDate}'
+        </if>
+         <!-- AND pm.is_deleted=0 -->
+    </select>
+    <select id="paymentReport" resultType="mapUnderscoreToCamelCase">
+        SELECT SUM(IF(s.is_refund = 1,(-1) * ABS(p.amount), ABS(p.amount) )) total
+        <foreach collection="payWays" item="pay">
+            ,SUM(IF( LOWER(t.payment_code) = '${pay.paymentCode}', IF(IFNULL(p.is_refund,s.is_refund) = 1,(- 1) *
+            ABS(p.amount),ABS(p.amount) ),0)) '${pay.paymentName}'
+        </foreach>
+        FROM
+        sale s INNER JOIN sale_payment p
+        ON s.tenant_id = p.tenant_id
+        AND s.branch_id = p.branch_id
+        AND s.sale_code = p.sale_code
+        AND p.is_deleted = 0
+        AND s.tenant_id=${tenantId} AND s.branch_id=${branchId} AND s.is_deleted=0
+        <if test="startDate != null and startDate != ''">
+            AND p.payment_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND p.payment_at &lt;= '${endDate}'
+        </if>
+        INNER JOIN payment t ON p.payment_id = t.id
+        GROUP BY s.cashier
+        HAVING 1=1
+    </select>
+
+    <!--机构使用的支付方式-->
+    <select id="usedPaymentInfo" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        p_.id,
+        p_.payment_code,
+        p_.payment_name
+        FROM
+        (SELECT DISTINCT
+        p.payment_id
+        FROM
+        sale_payment p
+        INNER JOIN sale s
+        ON s.tenant_id = p.tenant_id
+        AND s.branch_id = p.branch_id
+        AND s.sale_code = p.sale_code
+        AND p.is_deleted = 0
+        AND s.is_deleted = 0
+        <![CDATA[  AND s.login_time <= '${endDate}:59' ]]>
+        <![CDATA[  AND s.login_time >= '${startDate}:00' ]]>
+        WHERE p.tenant_id = #{tId}
+        AND p.branch_id = #{bId}
+        <if test="empId != null">
+            <![CDATA[  AND s.cashier = #{empId} ]]>
+        </if>
+        AND p.is_deleted = 0) sp
+        INNER JOIN payment p_
+        ON sp.payment_id = p_.id
+    </select>
+
+    <sql id="column_saleEmpWork">
+        SELECT
+        e.id emp_id,
+        e.code emp_code,
+        e.name emp_name,
+        pos_.pos_code,
+        s.login_time,
+        <![CDATA[
+        SUM(IF(s.is_refund = 1,(-1) * p.pay_total, p.pay_total )) total,
+        SUM(IF(s.is_refund = 1,(-1) * ABS(if(p.amount < 0 ,0,s.long_amount)), ABS(if(p.amount < 0 ,0,s.long_amount)) )) long_amount
+         ]]>
+        <foreach item="item" collection="payInfo">
+            <![CDATA[
+                ,SUM(IF(t.payment_code = ${item}, IF(s.is_refund = 1,(-1) * if(p.amount < 0 ,0,p.amount),if(p.amount < 0 ,0,p.amount) ),0))
+            ]]>
+        </foreach>
+        <![CDATA[
+            FROM
+            sale s INNER JOIN sale_payment p
+            ON s.tenant_id = p.tenant_id
+            AND s.branch_id = p.branch_id
+            AND s.sale_code = p.sale_code
+            AND p.is_deleted = 0
+            AND s.tenant_id=${tenantId} AND s.branch_id=#{branchId}
+            AND s.is_deleted=0 AND s.login_time <= '${endDate}:59'
+            AND s.login_time  >= '${startDate}:00'
+            INNER JOIN employee e ON s.cashier = e.id
+        ]]>
+        <if test="empId != null">
+            <![CDATA[  AND e.id = #{empId} ]]>
+        </if>
+        <![CDATA[
+            INNER JOIN payment t ON p.payment_id = t.id
+            INNER JOIN pos pos_ ON s.pos_id = pos_.id
+            GROUP BY s.cashier,pos_.pos_code,s.login_time
+        ]]>
+    </sql>
+    <!-- 分页查询- -->
+    <select id="querySaleEmpWorkPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="column_saleEmpWork"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+
+    <!-- 统计查询- -->
+    <select id="querySaleEmpWorkCount" resultType="map">
+        <![CDATA[
+            select COUNT(*) num ,SUM(t.total) total,SUM(t.long_amount)long_amount
+         ]]>
+        <foreach item="item" collection="payInfo">
+            <![CDATA[
+                ,SUM(t.${item}) ${item}
+            ]]>
+        </foreach>
+        from (
+        <include refid="column_saleEmpWork"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+
+    <!-- 分页查询- -->
+    <select id="queryGrossProfitPager" resultType="mapUnderscoreToCamelCase">
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="column_grossProfit"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+
+    <!-- 统计查询- -->
+    <select id="queryGrossProfitCount" resultType="mapUnderscoreToCamelCase">
+        <![CDATA[
+            select
+                count(t.goods_id) num ,'合 计' goods_code,SUM(total_amount) total_amount ,SUM(t.quantity*t.cost_amount) cost_total_amount,
+                SUM(quantity) quantity
+            from (
+         ]]>
+        <include refid="column_grossProfit"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+
+    <sql id="column_grossProfit">
+        select * ,total_amount - cost_total_amount gross_profit_amount,
+        if(total_amount =0,0,(total_amount - cost_total_amount) / total_amount) gross_ratio
+        from (
+        select * ,quantity * cost_amount cost_total_amount
+        from (
+        SELECT
+        dd.*,dd.total_amount / dd.quantity avg_sale_price,
+        IF( dd.is_store = 1,IFNULL(s.avg_amount,dd.purchasing_price),dd.purchasing_price) cost_amount
+        FROM
+        (SELECT
+        g.tenant_id,d.branch_id,d.goods_id,g.goods_code,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name, g.is_store,g.purchasing_price,
+        gs.property spec_name,gs.id spec_id,
+        SUM(if(d.is_refund = 0,d.quantity,-1 * d.quantity) ) quantity,
+        SUM(if(d.is_refund = 0,d.total_amount - d.discount_amount,-1 * (d.total_amount - d.discount_amount)))
+        total_amount
+        FROM
+        sale_detail d
+        INNER JOIN goods g ON d.tenant_id = g.tenant_id AND d.goods_id = g.id AND d.is_deleted = 0
+        AND d.is_package = 0
+        <if test="tenantId != null">
+            AND d.tenant_id = ${tenantId}
+        </if>
+        <if test="branchId != null">
+            AND d.branch_id = ${branchId}
+        </if>
+        <if test="startDate != null">
+            <![CDATA[ AND d.create_at >= '${startDate} 00:00:00' ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND d.create_at <= '${endDate} 23:59:59' ]]>
+        </if>
+        <if test="codeOrName != null">
+            <![CDATA[ AND (g.goods_name like '${codeOrName}' or g.goods_code like '${codeOrName}') ]]>
+        </if>
+
+        LEFT JOIN goods_spec gs ON d.tenant_id = gs.tenant_id AND d.goods_spec_id = gs.id
+        GROUP BY d.goods_id,gs.id)dd
+        LEFT JOIN store s
+        ON dd.goods_id = s.goods_id AND dd.tenant_id = s.tenant_id
+        AND dd.branch_id = s.branch_id AND s.is_deleted = 0 ) s1 ) s2
+    </sql>
+
+
+    <!-- mysql 分页头 -->
+    <sql id="pagination_Head">
+        <![CDATA[
+
+
+
+
+
+
+
+
+
+         select row_.* from (
+
+
+
+
+
+
+
+
+
+        ]]>
+    </sql>
+    <!-- mysql 分页尾 -->
+    <sql id="pagination_Tail">
+        <![CDATA[
+
+
+
+
+
+
+
+
+
+         ) row_ LIMIT #{pager.firstPage},#{pager.lastPage}
+
+
+
+
+
+
+
+
+
+        ]]>
+    </sql>
+    <!-- count * from -->
+    <sql id="count_Start_Head">
+        <![CDATA[
+
+
+
+
+
+
+
+
+
+         select count(*) count from (
+
+
+
+
+
+
+
+
+
+        ]]>
+    </sql>
+    <sql id="count_Start_Tail">
+        <![CDATA[
+
+
+
+
+
+
+
+
+
+         ) t
+
+
+
+
+
+
+
+
+
+        ]]>
+    </sql>
+    <sql id="order_head">
+        <![CDATA[
+
+
+
+
+
+
+
+
+
+         SELECT order_.* from (
+
+
+
+
+
+
+
+
+
+        ]]>
+    </sql>
+    <sql id="order_by">
+        <![CDATA[ ) order_ ]]>
+        <if test="pager.orderProperty != null and pager.order != null">
+            ORDER BY pager.orderProperty pager.order
+        </if>
+    </sql>
+    <select id="getDate" resultType="String">
+        SELECT ADDDATE('${date}',#{value})
+    </select>
+    <select id="saleTrend30DaysReport" resultType="mapUnderscoreToCamelCase">
+        SELECT sale_.*,sale_.real_amount / sale_.sale_num sale_unit_price
+        FROM
+        (SELECT s.tenant_id,s.branch_id,DATE_FORMAT(s.checkout_at, '%Y-%m-%d') checkout_at,
+        SUM(IF(s.is_refund = 0,IFNULL(s.long_amount,0) + s.received_amount,
+        - 1 * ( IFNULL(s.long_amount,0) + s.received_amount))) real_amount,
+        SUM(IF(s.is_refund = 0, 1, 0)) sale_num,
+        SUM(IF(s.is_refund = 1, 1, 0)) return_num
+        FROM sale s
+        WHERE s.is_deleted = 0
+        AND s.tenant_id = ${tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        <if test="branchIds != null and branchIds != ''">
+            AND s.branch_id in (${branchIds})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND s.checkout_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.checkout_at &lt;= '${endDate}'
+        </if>
+        GROUP BY s.tenant_id,s.branch_id, DATE_FORMAT(s.checkout_at, '%Y-%m-%d')) sale_
+    </select>
+    <select id="saleTrend30DaysReportSum" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        COUNT(*) total,
+        IFNULL(SUM(real_amount),0)real_amount,
+        IFNULL(SUM(sale_num),0) sale_num,
+        IFNULL(SUM(return_num),0) return_num,
+        IFNULL(SUM(real_amount)/SUM(sale_num),0) sale_unit_price
+        FROM (
+        SELECT sale_.*,sale_.real_amount / sale_.sale_num sale_unit_price
+        FROM
+        (SELECT s.tenant_id,s.branch_id,DATE_FORMAT(s.checkout_at, '%Y-%m-%d') checkout_at,
+        SUM(IF(s.is_refund = 0,IFNULL(s.long_amount,0) + s.received_amount,
+        - 1 * ( IFNULL(s.long_amount,0) + s.received_amount))) real_amount,
+        SUM(IF(s.is_refund = 0, 1, 0)) sale_num,
+        SUM(IF(s.is_refund = 1, 1, 0)) return_num
+        FROM sale s
+        WHERE s.is_deleted = 0
+        AND s.tenant_id = ${tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        <if test="branchIds != null and branchIds != ''">
+            AND s.branch_id in (${branchIds})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND s.checkout_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.checkout_at &lt;= '${endDate}'
+        </if>
+        GROUP BY s.tenant_id,s.branch_id, DATE_FORMAT(s.checkout_at, '%Y-%m-%d')) sale_
+        ) t
+    </select>
+
+    <!--支付方式汇总-->
+    <sql id="paymentSumHead">
+        SELECT count(t.payment_name) total, SUM(t.total_amount) total_amount FROM (
+    </sql>
+    <sql id="paymentSumMain">
+        SELECT p.id, p.payment_code, p.payment_name,
+        SUM(IF(IFNULL(s.is_refund, 0) = 1, (IF(s.is_long_amount,ABS(s.amount),-1*ABS(s.amount))),
+        (IF(s.is_long_amount,-1*ABS(s.amount),ABS(s.amount))))) total_amount,SUM(IFNULL(s.income,0)) income
+        FROM sale_payment s FORCE INDEX(idx_t_p)
+        INNER JOIN payment p
+        ON s.tenant_id = p.tenant_id
+        AND s.payment_id = p.id
+        AND s.tenant_id=${tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id IN (${branchId})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND s.payment_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.payment_at &lt;= '${endDate}'
+        </if>
+        <if test="allPayments != null and allPayments !='' ">
+            AND s.payment_code IN (${allPayments})
+        </if>
+        AND s.is_deleted = 0
+        GROUP BY s.payment_code
+        ORDER BY total_amount DESC
+    </sql>
+    <sql id="paymentSumFoot">
+        ) t
+    </sql>
+    <select id="paymentTypeReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="paymentSumMain"></include>
+        <include refid="pageFoot"></include>
+    </select>
+    <select id="paymentTypeSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="paymentSumHead"></include>
+        <include refid="paymentSumMain"></include>
+        <include refid="paymentSumFoot"></include>
+    </select>
+    <!--查询商户下所有支付方式-->
+    <select id="allPayment" resultType="mapUnderscoreToCamelCase">
+        SELECT * FROM ((SELECT tenant_payment_id id,payment_code,payment_name,payment_status,currency_id,create_by,create_at,last_update_by,last_update_at,is_deleted,
+        tenant_id,branch_id,is_score,fix_value,fix_num,payment_type,is_voucher,version,local_id,is_change,is_memo,is_sale,if(is_store=0,false,true) is_store,
+        if(is_open_cashbox=0,false,true) is_open_cashbox,order_number
+        FROM payment_branch WHERE tenant_id = #{tenantId} AND branch_id=#{branchId}
+        )
+        UNION ALL
+        (SELECT id,payment_code,payment_name,payment_status,currency_id,create_by,create_at,last_update_by,last_update_at,is_deleted,tenant_id,branch_id,
+        is_score,fix_value,fix_num,payment_type,is_voucher,version,local_id,is_change,is_memo,is_sale,if(is_store=0,false,true) is_store,
+        if(is_open_cashbox=0,false,true) is_open_cashbox,order_number
+        FROM payment WHERE tenant_id = #{tenantId} AND branch_id=#{branchId}
+        ))t ORDER BY if(isnull(t.order_number),1,0),t.order_number ASC
+    </select>
+
+    <!--区域销售汇总-->
+    <sql id="areaSumHead">
+        SELECT count(t.id) total,SUM(t.total_amount) total_amount, SUM(t.tc) tc, FORMAT(SUM(t.total_amount)/SUM(t.tc),3) ac, SUM(t.trade_amount) trade_amount, SUM(t.store_amount) store_amount
+        FROM (
+    </sql>
+    <sql id="areaSumMain">
+        SELECT a.id, a.code, a.name, IFNULL(IFNULL(d1.total_amount,0),0) total_amount, IFNULL(IFNULL(d1.tc,0),0) tc,
+        IFNULL((IFNULL(d1.total_amount,0))/(IFNULL(d1.tc,0)),0) ac,
+        IFNULL(d2.trade_amount,0) trade_amount, IFNULL(d3.store_amount,0) store_amount
+        FROM (SELECT * FROM area WHERE 1=1
+        <if test="areaId != null and areaId != ''">
+            AND id = ${areaId}
+        </if>
+        ) a
+        INNER JOIN
+        (SELECT b.id, b.area_id, SUM(IF(s.is_refund = 1,-received_amount, received_amount)) total_amount, COUNT(CASE
+        WHEN s.is_refund = 0 THEN s.id END ) tc
+        FROM branch b
+        INNER JOIN sale s ON b.tenant_id = s.tenant_id AND b.id = s.branch_id
+        WHERE b.tenant_id=#{tenantId} AND b.is_deleted = 0 AND s.is_deleted = 0
+        <if test="areaId != null and areaId != ''">
+            AND b.area_id IN (${allAreaId})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND s.checkout_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.checkout_at &lt;='${endDate}'
+        </if>
+        <if test="saleType != null and saleType == 0">
+            AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+        </if>
+        <if test="saleType != null and saleType == 1">
+            AND s.trans_terminal IN (5,6,7,8,9)
+        </if>
+        ) d1
+        INNER JOIN
+        (SELECT SUM(IF(vt.trade_type=4 OR vt.trade_type=5,-(IF(vt.trade_no LIKE 'WX%',IFNULL(vt.trade_amount,0) +
+        IFNULL(vt.integral_amount,0), IFNULL(vt.trade_amount,0))),
+        (IF(vt.trade_no LIKE 'WX%',IFNULL(vt.trade_amount,0) + IFNULL(vt.integral_amount,0),
+        IFNULL(vt.trade_amount,0))))) trade_amount FROM branch b INNER JOIN
+        vip_trade_history vt ON b.tenant_id = vt.tenant_id AND b.id = vt.trade_branch_id
+        WHERE b.tenant_id=#{tenantId} AND b.is_deleted = 0 AND vt.is_deleted = 0 AND vt.trade_type IN(1, 3, 4, 5)
+        <if test="areaId != null and areaId != ''">
+            AND b.area_id IN (${allAreaId})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND vt.trade_date &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vt.trade_date &lt;='${endDate}'
+        </if>
+        ) d2
+        INNER JOIN
+        (SELECT SUM(IF(vs.store_type=2,-vs.pay_amount,vs.pay_amount)) store_amount FROM branch b INNER JOIN
+        vip_store_history vs ON b.tenant_id = vs.tenant_id AND b.id = vs.store_branch_id
+        WHERE b.tenant_id=#{tenantId} AND b.is_deleted = 0 AND vs.is_deleted = 0 AND vs.store_type IN (1,2)
+        <if test="areaId != null and areaId != ''">
+            AND b.area_id IN (${allAreaId})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND vs.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vs.create_at &lt;='${endDate}'
+        </if>
+        ) d3
+    </sql>
+    <sql id="areaSumFoot">
+        ) t
+    </sql>
+    <select id="areaReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="areaSumMain"></include>
+        <include refid="pageFoot"></include>
+    </select>
+    <select id="areaSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="areaSumHead"></include>
+        <include refid="areaSumMain"></include>
+        <include refid="areaSumFoot"></include>
+    </select>
+    <!--查询是否有子区域-->
+    <select id="isSubregion" resultType="Integer">
+        SELECT COUNT(1) FROM area WHERE parent_id IN (#{areaId}) AND is_deleted = 0 AND tenant_id = ${tenantId}
+    </select>
+    <!--子区域-->
+    <select id="findSubregions" resultType="mapUnderscoreToCamelCase">
+        SELECT id FROM area WHERE  parent_id IN (#{pId}) AND is_deleted = 0 AND tenant_id = ${tenantId}
+    </select>
+    <!--查询子区域id-->
+    <sql id="subregionsHead">
+        SELECT count(id) total FROM  (
+    </sql>
+    <sql id="subregionsMain">
+        SELECT id FROM area WHERE parent_id = ${parentId} AND is_deleted = 0 AND tenant_id = ${tenantId}
+        <if test="userAreas != null and userAreas != ''">
+            AND id IN (${userAreas})
+        </if>
+    </sql>
+    <sql id="subregionsFoot">
+        ) t
+    </sql>
+    <select id="subregions" resultType="mapUnderscoreToCamelCase">
+        <include refid="subregionsMain"></include>
+    </select>
+    <select id="subregionsSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="subregionsHead"></include>
+        <include refid="subregionsMain"></include>
+        <include refid="subregionsFoot"></include>
+    </select>
+    <!--查询第一级区域-->
+    <select id="findFirstArea" resultType="mapUnderscoreToCamelCase">
+        SELECT id FROM area WHERE parent_id = -1 AND tenant_id = ${tenantId} AND is_deleted = 0
+        <if test="authorityType != 1">
+            AND id IN (${userAreas})
+        </if>
+    </select>
+    <!--根据机构ID查询区域ID-->
+    <select id="findAreaId" resultType="BigInteger">
+        SELECT id FROM area WHERE tenant_id = ${tenantId} AND parent_id = -1 AND is_deleted=0
+    </select>
+    <!--营业概况-->
+    <select id="businessOverviewReport" resultType="mapUnderscoreToCamelCase">
+        SELECT d1.total_amount, d1.tc, d1.ac, d1.dc, d1.discount_amount, d1.refund_count, d1.refund_amount,
+        d2.trade_amount, d2.trade_count,
+        d3.vip_trade_amount, d4.vip_store, d5.new_vip_count, d6.vip_count
+        FROM
+        (SELECT SUM(IF(s.is_refund = 1, -total_amount, total_amount)) total_amount, COUNT(CASE WHEN s.is_refund = 0 THEN
+        s.id END) tc,
+        SUM(IF(s.is_refund = 1, -total_amount, total_amount))/COUNT(CASE WHEN s.is_refund = 0 THEN s.id END) ac,
+        COUNT(CASE WHEN s.discount_amount != 0 OR s.give_amount != 0 OR s.trunc_amount != 0 THEN s.id END) dc,
+        SUM(s.discount_amount + s.give_amount + s.trunc_amount) discount_amount,
+        COUNT(CASE WHEN s.is_refund = 1 THEN s.id END) refund_count,
+        SUM(CASE WHEN s.is_refund = 1 THEN s.received_amount END) refund_amount
+        FROM sale s FORCE INDEX(idx_te_ch) WHERE 1=1 AND s.is_deleted = 0
+        <if test="branchId != null || branchId != ''">
+            AND s.branch_id IN (${branchId})
+        </if>
+        <if test="saleType != null and saleType != ''">
+            <if test="saleType == 0">
+                AND (s.sale_type = ${saleType} OR s.sale_type IS NULL)
+            </if>
+            <if test="saleType == 1">
+                AND s.sale_type = ${saleType}
+            </if>
+        </if>
+        <if test="startDate !=null || start != ''">
+            AND s.create_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null || endDate !=''">
+            AND s.create_at &lt;='${endDate} 23:59:59'
+        </if>
+        ) d1
+        INNER JOIN
+        (SELECT SUM(a.trade_amount) trade_amount,count(*) trade_count FROM (SELECT IFNULL(vt.trade_amount,0)
+        trade_amount FROM vip_trade_history vt
+        INNER JOIN sale s FORCE INDEX(idx_te_ch) ON vt.trade_no = s.sale_code WHERE 1=1 AND vt.trade_type IN (1,3,4) GROUP BY vt.id) a
+        <if test="branchId != null || branchId != ''">
+            AND s.branch_id IN (${branchId})
+        </if>
+        <if test="saleType != null and saleType != ''">
+            <if test="saleType == 0">
+                AND (s.sale_type = ${saleType} OR s.sale_type IS NULL)
+            </if>
+            <if test="saleType == 1">
+                AND s.sale_type = ${saleType}
+            </if>
+        </if>
+        <if test="startDate !=null || start != ''">
+            AND s.create_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null || endDate !=''">
+            AND s.create_at &lt;='${endDate} 23:59:59'
+        </if>
+        ) d2
+        INNER JOIN
+        (SELECT SUM(a.trade_amount) vip_trade_amount FROM (SELECT IFNULL(vt.trade_amount,0) trade_amount FROM
+        vip_trade_history vt
+        INNER JOIN sale s FORCE INDEX(idx_te_ch) ON vt.trade_no = s.sale_code WHERE 1=1 AND vt.trade_type IN (1,4) GROUP BY vt.id) a
+        <if test="branchId != null || branchId != ''">
+            AND s.branch_id IN (${branchId})
+        </if>
+        <if test="saleType != null and saleType != ''">
+            <if test="saleType == 0">
+                AND (s.sale_type = ${saleType} OR s.sale_type IS NULL)
+            </if>
+            <if test="saleType == 1">
+                AND s.sale_type = ${saleType}
+            </if>
+        </if>
+        <if test="startDate !=null || start != ''">
+            AND s.create_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null || endDate !=''">
+            AND s.create_at &lt;='${endDate} 23:59:59'
+        </if>
+        ) d3
+        INNER JOIN
+        (SELECT SUM(v.vip_store) vip_store FROM vip v WHERE 1=1 AND v.is_deleted = 0
+        <if test="branchId != null || branchId != ''">
+            AND v.branch_id IN (${branchId})
+        </if>
+        <if test="startDate !=null || start != ''">
+            AND v.create_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null || endDate !=''">
+            AND v.create_at &lt;='${endDate} 23:59:59'
+        </if>
+        ) d4
+        INNER JOIN
+        (SELECT SUM(v.id) new_vip_count FROM vip v WHERE 1=1 AND v.is_deleted = 0
+        <if test="branchId != null || branchId != ''">
+            AND v.branch_id IN (${branchId})
+        </if>
+        <if test="startDate !=null || start != ''">
+            AND v.create_at &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null || endDate !=''">
+            AND v.create_at &lt;='${endDate} 23:59:59'
+        </if>
+        ) d5
+        INNER JOIN
+        (SELECT SUM(v.id) vip_count FROM vip v WHERE 1=1 AND v.is_deleted = 0) d6
+    </select>
+    <!--赠退明细报表-->
+    <sql id="retirementReportHead">
+        SELECT count(1) total,
+        IFNULL(SUM(IF(t.is_refund = 1, -t.quantity, t.quantity)),0) quantity,
+        IFNULL(SUM(IF(t.is_refund = 1, -t.total_amount, t.total_amount)),0) total_amount FROM (
+    </sql>
+    <sql id="retirementReportMain">
+        SELECT DISTINCT(sd.id) id, sd.create_at, sd.goods_id, g.goods_code, IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name, g.category_id, gc.cat_name category_name, d1.cashier, d1.code, d1.name, sd.is_free_of_charge,
+        sd.is_refund,
+        sd.memo,IFNULL(sd.quantity,0) quantity,IFNULL(sd.total_amount, 0) total_amount
+        FROM sale_detail sd
+        INNER JOIN goods g ON sd.goods_id = g.id
+        LEFT JOIN category gc ON g.category_id = gc.id
+        INNER JOIN
+        (SELECT s.tenant_id,
+        s.branch_id,s.sale_code, s.cashier, e.code, e.name FROM sale s
+        INNER JOIN employee e ON s.cashier = e.id
+        LEFT JOIN branch b ON s.tenant_id = b.tenant_id AND s.branch_id = b.id
+        WHERE
+        s.tenant_id = #{tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        ) d1
+        ON sd.tenant_id=d1.tenant_id
+        AND sd.branch_id=d1.branch_id
+        AND sd.sale_code = d1.sale_code
+        WHERE sd.is_deleted = 0
+        <if test="categoryId !=null and categoryId != ''">
+            AND g.category_id = ${categoryId}
+        </if>
+        <if test="goodsId != null and goodsId != ''">
+            AND sd.goods_id = ${goodsId}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND sd.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND sd.create_at &lt;= '${endDate}'
+        </if>
+        <if test="empId !=null and empId != ''">
+            AND d1.cashier = ${empId}
+        </if>
+        <if test="isFreeOfCharge == null and isRefund == null">
+            AND (sd.is_free_of_charge = 1 OR sd.is_refund = 1)
+        </if>
+        <if test="isFreeOfCharge != null and isRefund == null">
+            AND sd.is_free_of_charge = 1 AND sd.is_refund = 0
+        </if>
+        <if test="isRefund != null and isFreeOfCharge == null">
+            AND sd.is_refund = 1
+        </if>
+        <if test="memo != null and memo != ''">
+            AND sd.memo LIKE '%${memo}%'
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY sd.${field} ${order}
+        </if>
+    </sql>
+    <sql id="retirementReportFoot">
+        ) t
+    </sql>
+    <select id="retirementReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="retirementReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="retirementReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="retirementReportHead"/>
+        <include refid="retirementReportMain"/>
+        <include refid="retirementReportFoot"/>
+    </select>
+
+    <!--库存预警报表-->
+    <sql id="storeWarningReportHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="storeWarningReportMain">
+        SELECT g.id, g.goods_code, g.goods_name, g.bar_code, cat.cat_name, gu.unit_name, g.store_up_limit,
+        g.store_low_limit,
+        s.quantity FROM goods g
+        INNER JOIN store s ON g.id = s.goods_id AND g.tenant_id = s.tenant_id
+        AND g.tenant_id = #{tenantId} AND s.branch_id = #{branchId}
+        INNER JOIN category cat ON g.category_id = cat.id
+        INNER JOIN goods_unit gu ON g.goods_unit_id = gu.id
+        WHERE g.tenant_id = #{tenantId} AND g.is_deleted = 0
+        <if test="goodsCodeOrNameOrMnemonic != null and goodsCodeOrNameOrMnemonic != ''">
+            AND (g.goods_code LIKE '%${goodsCodeOrNameOrMnemonic}%' OR g.goods_name LIKE
+            '%${goodsCodeOrNameOrMnemonic}%' OR g.mnemonic LIKE '%${goodsCodeOrNameOrMnemonic}%' OR g.bar_code LIKE
+            '%${goodsCodeOrNameOrMnemonic}%')
+        </if>
+        <if test="categoryId != null and categoryId != ''">
+            AND g.category_id = ${categoryId}
+        </if>
+        <if test="storeStatus == 0">
+            AND g.store_low_limit &lt;&gt; 0 AND s.quantity &lt; g.store_low_limit
+        </if>
+        <if test="storeStatus == 1">
+            AND g.store_up_limit &lt;&gt; 0 AND s.quantity &gt; g.store_up_limit
+        </if>
+        ORDER BY g.id
+    </sql>
+    <sql id="storeWarningReportFoot">
+        ) t
+    </sql>
+    <select id="storeWarningReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="storeWarningReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="storeWarningReportSum" resultType="java.lang.Long">
+        <include refid="storeWarningReportHead"/>
+        <include refid="storeWarningReportMain"/>
+        <include refid="storeWarningReportFoot"/>
+    </select>
+    <select id="wxPushBusiness" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        `sale_`.`sale_amount` - `sale_`.`return_amount` AS `real_amount`,
+        `sale_`.`sale_num`,
+        (`sale_`.`sale_amount` - `sale_`.`return_amount`) / `sale_num` AS `average_price`
+        FROM
+        (SELECT
+        SUM(IF(`sale`.`is_refund` = 0, IFNULL(`sale`.`long_amount`,0) + `sale`.`received_amount`, 0)) AS `sale_amount`,
+        SUM(IF(`sale`.`is_refund` = 1, IFNULL(`sale`.`long_amount`,0) + `sale`.`received_amount`, 0)) AS `return_amount`,
+        SUM(IF(`sale`.`is_refund` = 0, 1, 0)) sale_num
+        FROM `sale`
+        WHERE `sale`.`tenant_id` = ${tenantId}
+        AND `sale`.`branch_id` = #{branchId}
+        AND `sale`.`checkout_at` &gt;= '${beginDate}'
+        AND `sale`.`checkout_at` &lt;= '${endDate}'
+        AND `sale`.`is_deleted` = 0) AS `sale_`
+    </select>
+    <select id="countVipIncrease" resultType="Long">
+        SELECT count(*) FROM  vip where tenant_id=${tenantId} and branch_id=#{branchId} and create_at &gt;='${beginDate}' and create_at&lt;='${endDate}' and is_deleted=0
+    </select>
+
+    <!--新营业概况begin-->
+    <select id="businessVip" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        IFNULL(COUNT(*),0) vip_total,
+        <if test="startDate!=null and endDate!=null">
+            IFNULL(SUM(IF(v.branch_id in (${branchIds}) AND v.create_at &gt;='${startDate}' AND v.create_at &lt;='${endDate}',1,0)),0)
+            vip_increase,
+        </if>
+        IFNULL(SUM(IFNULL(v.vip_store,0)),0) store_total
+        FROM
+        vip v
+        WHERE
+        v.tenant_id=${tenantId}
+        AND v.branch_id in (${branchIds})
+        AND v.is_deleted=0
+    </select>
+    <select id="businessPos" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        sale_.*,
+        IF (
+        sale_.pos_sale_count = 0,
+        0,
+        sale_.pos_sale_amount / sale_.pos_sale_count
+        ) average
+        FROM
+        (
+        SELECT
+        IFNULL(SUM(IF(s.trans_terminal in (1,2,3,4) OR s.trans_terminal is NULL,IF(s.is_refund = 0, 1, 0),0)),0)
+        pos_sale_count,
+        IFNULL(SUM(IF(s.trans_terminal in (1,2,3,4) OR s.trans_terminal is NULL,IF(s.is_refund = 1,
+        -1*ABS(s.total_amount), ABS(s.total_amount)),0)),0) pos_total_amount,
+        IFNULL(SUM(IF(s.total_amount-s.received_amount!=0 AND s.is_refund=0,1,0)),0) discount_count,
+        IFNULL(SUM(IF(s.trans_terminal in (1,2,3,4) OR s.trans_terminal is NULL,IF(s.is_refund = 1,
+        -1*ABS(s.discount_amount), ABS(s.discount_amount)),0)),0) pos_dis_amount,
+        IFNULL(SUM(IF(s.trans_terminal in (1,2,3,4) OR s.trans_terminal is NULL,IF(s.is_refund = 1,
+        -1*ABS(s.give_amount), ABS(s.give_amount)),0)),0) pos_give_amount,
+        IFNULL(SUM(IF(s.trans_terminal in (1,2,3,4) OR s.trans_terminal is NULL,IF(s.is_refund =
+        0,ABS(s.received_amount),- 1 * ABS(s.received_amount)),0)),0) pos_sale_amount
+        FROM
+        sale s FORCE INDEX(idx_te_ch)
+        WHERE
+        s.tenant_id = ${tenantId}
+        AND s.branch_id in (${branchIds})
+        AND s.is_deleted = 0
+        <if test="startDate!=null">
+            AND s.checkout_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate!=null">
+            AND s.checkout_at &lt;= '${endDate}'
+        </if>
+        ) sale_
+    </select>
+    <select id="businessRetire" resultType="mapUnderscoreToCamelCase">
+        select
+        IFNULL(SUM(IF(sd.is_refund=1,1,0)),0) pos_refund_count,
+        IFNULL(SUM(IF(sd.is_refund=0 AND sd.is_free_of_charge=1,1,0)),0) give_count
+        FROM
+        sale_detail sd FORCE INDEX(idx_t_c)
+        WHERE
+        sd.tenant_id=${tenantId}
+        AND sd.branch_id in (${branchIds})
+        AND sd.is_deleted=0
+        <if test="startDate!=null">
+            AND sd.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate!=null">
+            AND sd.create_at &lt;= '${endDate}'
+        </if>
+    </select>
+    <select id="businessOrder" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        order_.*,
+        order_.meituan_income+order_.eleme_income+order_.wx_amount order_amount
+        FROM
+        (
+        SELECT
+        IFNULL(SUM(IF(s.trans_terminal=9,s.total_amount,0)),0)
+        meituan_total,
+        IFNULL(SUM(IF(s.trans_terminal=9,s.received_amount,0)),0)
+        meituan_amount,
+        IFNULL(SUM(IF(s.trans_terminal=9,s.income,0)),0) meituan_income,
+        IFNULL(SUM(IF(s.trans_terminal=8,s.total_amount,0)),0) eleme_total,
+        IFNULL(SUM(IF(s.trans_terminal=8,s.received_amount,0)),0) eleme_amount,
+        IFNULL(SUM(IF(s.trans_terminal=8, s.income,0)),0) eleme_income,
+        IFNULL(SUM(IF(s.trans_terminal in (3,4,5,6,7),s.received_amount,0)),0) wx_amount
+        FROM sale s FORCE INDEX(idx_te_ch)
+        WHERE s.tenant_id=${tenantId}
+        AND s.branch_id in (${branchIds})
+        AND s.is_deleted=0
+        <if test="startDate!=null">
+            AND s.checkout_at &gt;='${startDate}'
+        </if>
+        <if test="endDate!=null">
+            AND s.checkout_at &lt;='${endDate}'
+        </if>
+        ) order_
+    </select>
+    <select id="businessPayment" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        payment_.*,
+        payment_.csh_pay_amount+payment_.mobile_pay_amount+payment_.other_pay_amount payment_amount
+        FROM
+        (
+        SELECT
+        IFNULL(SUM(IF( LOWER(p.payment_code) = 'csh', IF(p.is_refund =
+        1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))
+        ),0)),0) csh_pay_amount,
+        IFNULL(SUM(IF( LOWER(p.payment_code) = 'wx' OR LOWER(p.payment_code) = 'zfb' OR LOWER(p.payment_code) = 'hzf',
+        IF(p.is_refund =
+        1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))
+        ),0)),0) mobile_pay_amount,
+        IFNULL(SUM(IF( LOWER(p.payment_code) != 'wx' AND LOWER(p.payment_code) != 'zfb' AND LOWER(p.payment_code) !=
+        'csh' AND LOWER(p.payment_code) !='hzf', IF(p.is_refund =
+        1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))
+        ),0)),0) other_pay_amount
+        FROM
+        sale_payment p FORCE INDEX(idx_t_p)
+        WHERE
+        p.tenant_id=${tenantId}
+        AND p.branch_id in (${branchIds})
+        AND p.is_deleted=0
+        AND (p.trans_terminal in (1,2,3,4) OR p.trans_terminal IS NULL)
+        <if test="startDate!=null">
+            AND p.payment_at &gt;='${startDate}'
+        </if>
+        <if test="endDate!=null">
+            AND p.payment_at &lt;='${endDate}'
+        </if>
+        ) payment_
+    </select>
+    <select id="businessVipStore" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        IFNULL(store_.vip_store_amount-store_.vip_refund_amount-store_.vip_refund_card_amount,0) store_amount
+        FROM
+        (
+        SELECT
+        SUM(IF(vsh.store_type=1,vsh.pay_amount,0)) vip_store_amount,
+        SUM(IF(vsh.store_type=2,vsh.pay_amount,0)) vip_refund_amount,
+        SUM(IF(vsh.store_type=5,vsh.pay_amount,0)) vip_refund_card_amount
+        FROM
+        vip_store_history vsh
+        WHERE
+        vsh.is_deleted=0
+        AND vsh.store_branch_id in (${branchIds})
+        <if test="startDate!=null">
+            AND vsh.create_at &gt;='${startDate}'
+        </if>
+        <if test="endDate!=null">
+            AND vsh.create_at &lt;='${endDate}'
+        </if>
+        ) store_
+    </select>
+    <select id="businessVipTrade" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        IFNULL(trade_.vip_trade_amount,0) trade_amount
+        FROM
+        (
+        SELECT
+        SUM(IF(vth.store_type=3,ABS(vth.pay_amount),-1*ABS(vth.pay_amount))) vip_trade_amount
+        FROM
+        vip_store_history vth
+        WHERE
+        vth.is_deleted=0
+        AND vth.store_branch_id in (${branchIds})
+        AND (vth.store_type=3 OR vth.store_type=4)
+        <if test="startDate!=null">
+            AND vth.create_at &gt;='${startDate}'
+        </if>
+        <if test="endDate!=null">
+            AND vth.create_at &lt;='${endDate}'
+        </if>
+        ) trade_
+    </select>
+    <select id="businessStoreSale" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        IFNULL(SUM(IF(sd.is_refund=0,sd.received_amount,-sd.received_amount)),0)
+        sale_amount
+        FROM sale_detail sd FORCE INDEX(idx_t_c)
+        INNER JOIN goods g ON sd.goods_id=g.id
+        AND sd.tenant_id=g.tenant_id
+        AND sd.is_deleted=0
+        WHERE
+        sd.tenant_id=${tenantId}
+        AND sd.branch_id in (${branchIds})
+        <if test="startDate!=null">
+            AND sd.create_at &gt;='${startDate}'
+        </if>
+        <if test="endDate!=null">
+            AND sd.create_at &lt;='${endDate}'
+        </if>
+        AND sd.goods_id!=0
+        AND (g.is_store=1 or g.combination_type=3)
+        AND g.goods_type!=2
+    </select>
+    <select id="businessStoreOccur" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        IFNULL(SUM(IF(sa.occur_type=1 or sa.occur_type=6,ABS(sa.occur_amount),-1*ABS(sa.occur_amount))),0) occur_amount
+        FROM store_account sa
+        WHERE sa.tenant_id=${tenantId}
+        AND sa.branch_id in (${branchIds})
+        <if test="startDate!=null">
+            AND sa.store_account_at &gt;='${startDate}'
+        </if>
+        <if test="endDate!=null">
+            AND sa.store_account_at &lt;='${endDate}'
+        </if>
+        AND sa.is_deleted=0
+        AND sa.occur_type in (1,5,6,7)
+    </select>
+    <select id="businessStore" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        IFNULL(SUM(s.store_amount),0) store_sum_amount,
+        IFNULL(SUM(IF(g.store_up_limit!=0 and s.quantity > g.store_up_limit,1,0)),0) up_count,
+        IFNULL(SUM(IF(g.store_low_limit!=0 and s.quantity &lt;g.store_low_limit,1,0)),0) low_count
+        FROM
+        store s INNER JOIN goods g ON s.goods_id=g.id
+        AND g.is_deleted=0
+        AND s.tenant_id=g.tenant_id
+        AND s.tenant_id=${tenantId}
+        AND s.branch_id in (${branchIds})
+        AND s.is_deleted=0
+        AND g.is_store=1
+    </select>
+    <!--新营业概况end-->
+
+    <!--套餐销售汇总-->
+    <sql id="packageReportHead">
+        SELECT count(1) total,
+        SUM(quantity) quantity,
+        SUM(total_amount) total_amount
+        FROM (
+    </sql>
+    <!--        SUM(IF(s.is_refund=0,s.received_amount, -1*(s.received_amount))) total_amount-->
+    <sql id="packageReportMain">
+        SELECT g.id,g.goods_code,g.goods_name,SUM(IF(s.is_refund=0,s.quantity, -1*s.quantity)) quantity,
+        SUM(IF (s.is_refund = 0,
+        IF (s.is_free_of_charge = 1,0+IFNULL(s.spec_amount,0),s.received_amount),
+        IF (s.is_free_of_charge = 1,0-IFNULL(s.spec_amount,0) ,- 1 * (s.received_amount)))) total_amount
+        FROM sale_detail s
+        LEFT JOIN goods g ON s.tenant_id = g.tenant_id AND s.package_id = g.id
+        LEFT JOIN branch b ON s.tenant_id = b.tenant_id AND s.branch_id = b.id
+        WHERE s.is_deleted = 0 AND s.tenant_id = ${tenantId} AND g.goods_type = 2 AND s.goods_id = 0 AND
+        s.is_package =1
+        <if test="startDate != null and startDate != ''">
+            AND s.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.create_at &lt;= '${endDate}'
+        </if>
+        <if test="packageName != null and packageName != ''">
+            AND g.goods_name LIKE '%${packageName}%'
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = ${branchId}
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        <if test="saleType != null and saleType == 0">
+            AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+        </if>
+        <if test="saleType != null and saleType == 1">
+            AND s.trans_terminal IN (5,6,7,8,9)
+        </if>
+        GROUP BY s.package_id
+        <if test="order!=null and field!=null">
+            ORDER BY s.${field} ${order}
+        </if>
+        <!--<if test="saleType != null and saleType == 1">
+            SELECT g.id,g.goods_code,g.goods_name,SUM(IF(s.is_refund=0,s.quantity, -1*s.quantity)) quantity,
+            SUM(IF(s.is_refund=0,s.total_amount, -1*s.total_amount)) total_amount
+            FROM diet_order_detail s
+            LEFT JOIN diet_order_info d ON s.diet_order_info_id = d.id
+            LEFT JOIN goods g ON s.package_id = g.id
+            WHERE s.is_deleted = 0 AND s.tenant_id = ${tenantId} AND g.goods_type = 2 AND s.goods_id = 0 AND
+            s.is_package =1 AND d.pay_status IN (1,4)
+            <if test="startDate != null and startDate != ''">
+                AND s.create_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND s.create_at &lt;= '${endDate}'
+            </if>
+            <if test="packageName != null and packageName != ''">
+                AND g.goods_name LIKE '%${packageName}%'
+            </if>
+            <if test="branchId != null and branchId != ''">
+                AND s.branch_id = ${branchId}
+            </if>
+            GROUP BY s.package_id
+        </if>-->
+    </sql>
+    <sql id="packageReportFoot">
+        ) t
+    </sql>
+    <select id="packageReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="packageReportMain"></include>
+        <include refid="pageFoot"></include>
+    </select>
+    <select id="packageReportSum" resultType="mapUnderscoreToCamelCase">
+        <include refid="packageReportHead"></include>
+        <include refid="packageReportMain"></include>
+        <include refid="packageReportFoot"></include>
+    </select>
+
+    <!--会员台帐-积分记录-->
+    <sql id="vipScoreReportHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="vipScoreReportF">
+        SELECT SUM(IF(t.book_type = 5, -t.vip_score, t.vip_score)) vip_score FROM (
+    </sql>
+    <sql id="vipScoreReportMain">
+        SELECT vb.payment_code, v.vip_name, v.phone, vt.type_name, vb.operate_at, vb.book_type,
+        IF(vb.book_type = 2, -1*ABS(vb.vip_score), vb.vip_score) vip_score,
+        (IFNULL(vb.total_score, 0)+IF(vb.book_type = 2, -IFNULL(ABS(vb.vip_score),0), IFNULL(vb.vip_score,0)))
+        total_score,
+        b.name, IFNULL(e.name, vb.operate_by) operate_by, vb.store_from FROM vip_book vb
+        INNER JOIN vip v ON vb.vip_id = v.id
+        INNER JOIN branch b ON vb.branch_id = b.id
+        INNER JOIN vip_type vt ON v.type_id = vt.id
+        LEFT JOIN employee e ON vb.emp_id = e.id
+        LEFT JOIN card c ON vb.tenant_id = c.tenant_id AND vb.vip_id = c.holder_id
+        WHERE vb.is_deleted=0 AND vb.tenant_id = ${tenantId}
+        <if test="startDate != null and startDate != ''">
+            AND vb.operate_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vb.operate_at &lt;= '${endDate}'
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vb.vip_id = ${vipId}
+        </if>
+        <if test="phoneOrCode != null and phoneOrCode != ''">
+            AND (v.phone LIKE '%${phoneOrCode}%' OR c.code  LIKE '%${phoneOrCode}%')
+        </if>
+        <if test="bookType != null and bookType != ''">
+            <if test="bookType == 1">
+                AND vb.book_type = ${bookType} AND vb.vip_score &gt; 0
+            </if>
+            <if test="bookType == 4">
+                AND vb.book_type = 1 AND vb.vip_score &lt; 0
+            </if>
+            <if test="bookType != 1 and bookType != 4">
+                AND vb.book_type = ${bookType}
+            </if>
+        </if>
+        <if test="storeFrom != null and storeFrom != ''">
+            <if test="storeFrom == 0">
+                AND (vb.store_from = 0 OR vb.store_from IS NULL)
+            </if>
+            <if test="storeFrom != 0">
+                AND vb.store_from = ${storeFrom}
+            </if>
+        </if>
+        <if test="vipTypeName != null and vipTypeName != ''">
+            AND vt.type_name = #{vipTypeName}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND vb.branch_id IN (${branchId})
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        <if test="branchIds != null and branchIds != ''">
+            AND v.branch_id IN (${branchIds})
+        </if>
+        <if test="order==null and field==null">
+            ORDER BY vb.operate_at DESC
+        </if>
+        <if test="order!=null and field!=null">
+            ORDER BY s.${field} ${order}
+        </if>
+    </sql>
+    <sql id="vipScoreReportFoot">
+        ) t
+    </sql>
+    <select id="vipScoreReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="vipScoreReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="vipScoreReportSum" resultType="java.lang.Long">
+        <include refid="vipScoreReportHead"/>
+        <include refid="vipScoreReportMain"/>
+        <include refid="vipScoreReportFoot"/>
+    </select>
+    <select id="vipScoreReportFoot" resultType="mapUnderscoreToCamelCase">
+        <include refid="vipScoreReportF"/>
+        <include refid="vipScoreReportMain"/>
+        <include refid="vipScoreReportFoot"/>
+    </select>
+    <!--会员台账-储值记录-->
+    <sql id="vipStoreReportHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="vipStoreReportF">
+        /*SUM(IF(t.store_type = 5, 0, vip_oper_store)) vip_oper_store */
+        SELECT SUM(CASE t.store_type WHEN 1 THEN t.pay_amount WHEN 2 THEN -t.pay_amount WHEN 5 THEN -t.pay_amount ELSE 0 END) store_amount,
+        SUM(IF(t.store_type = 2, -t.gift_amount, t.gift_amount)) gift_amount,
+        SUM(CASE t.store_type WHEN 3 THEN t.pay_amount WHEN 4 THEN -t.pay_amount ELSE 0 END) pay_amount
+        FROM (
+    </sql>
+    <sql id="vipStoreReportMain">
+        SELECT vs.id, vs.store_code, v.vip_name, v.phone, vt.type_name, vs.create_at, vs.store_type, vs.pay_amount,
+        vs.gift_amount, b.`name` branch_name,
+        vs.create_by, vs.store_from, vs.vip_oper_store, vs.store_branch_id, vs.correct_flag, vs.pay_type,p.payment_name
+        FROM vip_store_history vs
+        INNER JOIN branch b ON vs.tenant_id = b.tenant_id AND vs.store_branch_id = b.id
+        INNER JOIN vip v ON vs.tenant_id = v.tenant_id AND vs.vip_id = v.id
+        INNER JOIN vip_type vt ON v.tenant_id = vt.tenant_id AND v.type_id = vt.id
+        LEFT  JOIN payment p ON vs.tenant_id = p.tenant_id AND vs.payment_id=p.id
+        LEFT JOIN card c ON vs.tenant_id = c.tenant_id AND vs.store_branch_id = c.branch_id AND vs.vip_id = c.holder_id AND c.is_deleted = 0
+        WHERE vs.is_deleted = 0 AND v.tenant_id =${tenantId}
+        <if test="startDate != null and startDate != ''">
+            AND vs.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vs.create_at &lt;= '${endDate}'
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vs.vip_id = ${vipId}
+        </if>
+        <if test="(vipId == null or vipId == '') and vipList !=null and vipList != ''">
+            AND vs.vip_id IN (${vipList})
+        </if>
+        <if test="phoneOrCode != null and phoneOrCode != ''">
+            AND (v.phone LIKE '%${phoneOrCode}%' OR c.code  LIKE '%${phoneOrCode}%')
+        </if>
+        <if test="vipTypeName != null and vipTypeName != ''">
+            AND vt.type_name = #{vipTypeName}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND vs.store_branch_id IN(${atBranchId})
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        <if test="storeType != null and storeType != ''">
+            AND vs.store_type = ${storeType}
+        </if>
+        <if test="paymentId != null and paymentId != ''">
+           <!-- <if test="payType == 1">
+                AND vs.store_type != 4
+            </if>
+            <if test="payType == 7">
+                AND (vs.pay_type = ${payType} OR (vs.pay_type = 1 AND store_type = 4))
+            </if>
+            <if test="payType != 7 and payType != 6">
+                AND vs.pay_type = ${payType}
+            </if>
+            <if test="payType == 6">
+                <if test="storeType == 5">
+                    AND (vs.pay_type IS NULL OR vs.store_type = 5)
+                </if>
+                <if test="storeType != 5">
+                    AND (vs.pay_type IS NULL OR vs.pay_type = ${payType})
+                </if>
+            </if>-->
+            <choose>
+                <when test="paymentId !=null and payType!=null">
+                    AND (vs.payment_id=#{paymentId} OR (vs.pay_type= #{payType}))
+                </when>
+                <otherwise>
+                  AND  vs.payment_id=#{paymentId}
+                </otherwise>
+            </choose>
+        </if>
+        <if test="storeFrom != null and storeFrom != ''">
+            AND vs.store_from = ${storeFrom}
+        </if>
+        <if test="branchIds != null and branchIds != ''">
+            AND v.branch_id IN (${branchIds})
+        </if>
+        <if test="cashierName !=null and cashierName !=''">
+            AND vs.create_by=#{cashierName}
+        </if>
+        ORDER BY vs.create_at DESC
+    </sql>
+    <sql id="vipStoreReportFoot">
+        ) t
+    </sql>
+    <select id="vipStoreReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="vipStoreReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="vipStoreReportSum" resultType="java.lang.Long">
+        <include refid="vipStoreReportHead"/>
+        <include refid="vipStoreReportMain"/>
+        <include refid="vipStoreReportFoot"/>
+    </select>
+    <select id="vipStoreReportFoot" resultType="mapUnderscoreToCamelCase">
+        <include refid="vipStoreReportF"/>
+        <include refid="vipStoreReportMain"/>
+        <include refid="vipStoreReportFoot"/>
+    </select>
+    <!--会员台账-消费记录-->
+    <sql id="vipTradeReportHead">
+        SELECT  count(1) FROM (
+    </sql>
+    <sql id="vipTradeReportF">
+        SELECT SUM(IF(b.is_refund = 1 OR b.trade_type = 4, -b.trade_amount, b.trade_amount)) trade_amount,
+        SUM(IF(b.is_refund = 1 OR b.trade_type = 4 OR b.trade_type = 5, -b.store_pay_amount, b.store_pay_amount)) store_pay_amount,
+        SUM(IF(b.is_refund = 1 OR b.trade_type = 4 OR b.trade_type = 5, -b.integral_amount, b.integral_amount)) integral_amount,
+        SUM(IF(b.is_refund = 1 OR b.trade_type = 4 OR b.trade_type = 5, -b.other_pay_amount, b.other_pay_amount)) other_pay_amount,
+        SUM(b.add_score) add_score
+        FROM (
+    </sql>
+    <sql id="vipTradeReportMain">
+        SELECT vt.trade_no, vt.vip_id, v.vip_name, vp.type_name, v.phone, vt.trade_type,
+        SUM(IF(vt.trade_no LIKE 'WX%',IFNULL(vt.trade_amount,0) + IFNULL(vt.integral_amount,0),
+        IFNULL(vt.trade_amount,0))) trade_amount,
+        SUM(IF(vt.trade_type = 1 OR vt.trade_type = 4, vt.trade_amount, 0)) store_pay_amount,
+        SUM(vt.integral_amount) integral_amount, SUM(IF(vt.trade_type = 3 OR vt.trade_type = 5, vt.pay_amount, 0))
+        other_pay_amount,
+        SUM(IFNULL(vt.add_score, 0)) add_score, vt.trade_date,
+        b.name, b.id branch_id, vt.create_by,s.is_refund FROM vip_trade_history vt
+        LEFT JOIN vip v ON vt.tenant_id = v.tenant_id AND vt.vip_id = v.id
+        LEFT JOIN vip_type vp ON vp.tenant_id = v.tenant_id AND v.type_id = vp.id
+        LEFT JOIN branch b ON b.tenant_id = vt.tenant_id AND vt.trade_branch_id = b.id
+        LEFT JOIN sale s ON s.tenant_id = vt.tenant_id AND vt.trade_branch_id = s.branch_id AND vt.trade_no =
+        s.sale_code
+        LEFT JOIN card c ON vt.tenant_id = c.tenant_id AND vt.trade_branch_id = c.branch_id AND vt.vip_id = c.holder_id AND c.is_deleted = 0
+        WHERE 1=1 AND vt.is_deleted = 0 AND vt.tenant_id = #{tenantId}
+        <if test="atBranchId != null and atBranchId != ''">
+            AND vt.trade_branch_id IN (${atBranchId})
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND vt.trade_date &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vt.trade_date &lt;= '${endDate}'
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vt.vip_id = ${vipId}
+        </if>
+        <if test="phoneOrCode != null and phoneOrCode != ''">
+            AND (v.phone LIKE '%${phoneOrCode}%' OR c.code LIKE '%${phoneOrCode}%')
+        </if>
+        <if test="typeId != null and typeId != ''">
+            AND vp.id = ${typeId}
+        </if>
+        <if test="orderResource == 0">
+            AND vt.trade_no NOT LIKE 'XF%' AND vt.trade_no NOT LIKE 'WX%'
+        </if>
+        <if test="orderResource == 1">
+            AND (vt.trade_no LIKE 'XF%' OR vt.trade_no LIKE 'WX%')
+        </if>
+        <if test="isRefund == 0">
+            AND (s.is_refund = 0 OR s.is_refund IS NULL) AND vt.trade_type != 4
+        </if>
+        <if test="isRefund == 1">
+            AND (s.is_refund = 1 OR vt.trade_type = 4)
+        </if>
+        <if test="branchIds != null and branchIds != ''">
+            AND v.branch_id IN (${branchIds})
+        </if>
+        GROUP BY vt.trade_no
+        ORDER BY vt.trade_date DESC
+    </sql>
+    <sql id="vipTradeReportFoot">
+        ) b
+    </sql>
+    <select id="vipTradeReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="vipTradeReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="vipTradeReportSum" resultType="java.lang.Long">
+        <include refid="vipTradeReportHead"/>
+        <include refid="vipTradeReportMain"/>
+        <include refid="vipTradeReportFoot"/>
+    </select>
+    <select id="vipTradeReportFoot" resultType="mapUnderscoreToCamelCase">
+        <include refid="vipTradeReportF"/>
+        <include refid="vipTradeReportMain"/>
+        <include refid="vipTradeReportFoot"/>
+    </select>
+    <select id="branchData" resultType="java.lang.Long">
+        SELECT count(*) FROM sale WHERE tenant_id=${tenantId} AND branch_id=${branchId} AND checkout_at &gt;='${startDate}' AND checkout_at &lt;='${endDate}' AND is_deleted=0
+    </select>
+    <select id="branchActiveData" resultType="mapUnderscoreToCamelCase">
+        SELECT tenant_id,branch_id FROM sale WHERE tenant_id IN (${tenantIds}) AND branch_id IN (${branchIds}) AND checkout_at &gt;='${startDate}' AND checkout_at &lt;='${endDate}' AND is_deleted=0 GROUP BY tenant_id,branch_id
+    </select>
+
+    <select id="statisticsActiveBranches" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        tenant_id,
+        branch_id
+        FROM sale
+        WHERE tenant_id IN
+        <foreach collection="tenantIds" index="index" item="tenantId" open="(" separator="," close=")">
+            ${tenantId}
+        </foreach>
+        AND branch_id IN
+        <foreach collection="branchIds" index="index" item="branchId" open="(" separator="," close=")">
+            #{branchId}
+        </foreach>
+        AND checkout_at &gt;= #{startDate}
+        AND checkout_at &lt;= #{endDate}
+        AND is_deleted = 0
+        GROUP BY tenant_id, branch_id
+    </select>
+
+
+    <!--规格汇总报表-->
+    <select id="standardSaleGoodsIds" resultType="mapUnderscoreToCamelCase">
+        SELECT sd.goods_id goods_id FROM sale_detail sd
+        LEFT JOIN branch b ON sd.tenant_id = b.tenant_id AND sd.branch_id = b.id
+        WHERE sd.tenant_id = #{tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND sd.branch_id = #{branchId}
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        AND sd.is_deleted = 0
+        AND sd.goods_id &lt;&gt; 0
+        <if test="goodsId != null and goodsId != ''">
+            AND sd.goods_id IN (${goodsId})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND sd.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND sd.create_at &lt;= '${endDate}'
+        </if>
+        <if test="saleType != null and saleType == 0">
+            AND (sd.trans_terminal IN (1,2,3,4) OR sd.trans_terminal IS NULL)
+        </if>
+        <if test="saleType != null and saleType == 1">
+            AND sd.trans_terminal IN (5,6,7,8,9)
+        </if>
+    </select>
+    <select id="standardIds" resultType="mapUnderscoreToCamelCase">
+      SELECT DISTINCT(t.id) FROM (
+        SELECT id FROM goods WHERE tenant_id = #{tenantId} AND parent_id IN (${goodsIds}) AND parent_id != 0
+        UNION ALL
+        SELECT parent_id id FROM goods WHERE tenant_id = #{tenantId} AND parent_id IN (${goodsIds}) AND parent_id != 0)t
+    </select>
+    <sql id="standardReportHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="standardReportSumHead">
+        SELECT count(1) total, SUM(t.quantity) quantity, SUM(t.total_amount) total_amount, SUM(t.purchasing_price) purchasing_price, SUM(t.total_amount) - SUM(t.purchasing_price) gross_profit
+        FROM (
+    </sql>
+    <sql id="standardReportFoot">
+        )t
+    </sql>
+    <sql id="standardReportMain">
+        SELECT a.goods_id, a.goods_code, a.goods_name, SUM(IFNULL(a.quantity,0)) quantity, SUM(IFNULL(a.total_amount,0))
+        total_amount, SUM(IFNULL(a.purchasing_price,0)) purchasing_price FROM(
+        SELECT IF(gs.parent_id = 0, gs.id, gs.parent_id) as goods_id, gs.goods_code, gs.goods_name,
+        SUM(IF(sd.is_refund = 1, -sd.quantity, sd.quantity)) quantity,
+        SUM(IF (sd.is_refund = 0,
+        IF (sd.is_free_of_charge = 1,0+IFNULL(sd.spec_amount,0),sd.received_amount),
+        IF (sd.is_free_of_charge = 1,0-IFNULL(sd.spec_amount,0) ,- 1 * (sd.received_amount)))) total_amount,
+        SUM(IF(sd.is_refund = 1, -sd.quantity, sd.quantity)) * gs.purchasing_price as purchasing_price FROM sale_detail sd
+        INNER JOIN goods gs ON sd.tenant_id = gs.tenant_id AND sd.goods_id = gs.id
+        LEFT JOIN branch b ON sd.tenant_id = b.tenant_id AND sd.branch_id = b.id
+        WHERE sd.tenant_id = #{tenantId}
+        <if test="branchId != null and branchId != ''">
+            AND sd.branch_id = #{branchId}
+        </if>
+        <if test="parentId != null and parentId != ''">
+            AND b.parent_id = #{parentId}
+        </if>
+        AND sd.is_deleted = 0 AND sd.goods_id &lt;&gt; 0
+        <if test="goodsIds != null and goodsIds != ''">
+            AND sd.goods_id IN (${goodsIds})
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND sd.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND sd.create_at &lt;= '${endDate}'
+        </if>
+        <if test="saleType != null and saleType == 0">
+            AND (sd.trans_terminal IN (1,2,3,4) OR sd.trans_terminal IS NULL)
+        </if>
+        <if test="saleType != null and saleType == 1">
+            AND sd.trans_terminal IN (5,6,7,8,9)
+        </if>
+        GROUP BY sd.goods_id
+        <if test="order!=null and field!=null">
+            ORDER BY sd.${field} ${order}
+        </if>
+        <!--<if test="saleType != null and saleType == 1">
+            SELECT IF(gs.parent_id = 0, gs.id, gs.parent_id) as goods_id, gs.goods_code, gs.goods_name, sd.quantity,
+            sd.total_amount, sd.quantity * gs.purchasing_price as purchasing_price FROM diet_order_detail sd
+            INNER JOIN goods gs ON sd.goods_id = gs.id AND gs.tenant_id = ${tenantId} AND gs.branch_id = ${branchId}
+            INNER JOIN diet_order_info s ON s.id = sd.diet_order_info_id
+            WHERE sd.is_deleted = 0 AND s.branch_id = ${branchId} AND s.tenant_id = ${tenantId} AND s.pay_status IN
+            (1,4)
+            <if test="goodsId != null and goodsId != ''">
+                AND sd.goods_id = ${goodsId}
+            </if>
+            <if test="startDate != null and startDate != ''">
+                AND s.create_at &gt;= '${startDate}'
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND s.create_at &lt;= '${endDate}'
+            </if>
+        </if>-->
+        )a GROUP BY a.goods_id
+    </sql>
+    <select id="standardReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="standardReportMain"/>
+        <include refid="pageFoot"/>
+    </select>
+    <select id="standardReportSum" resultType="java.lang.Long">
+        <include refid="standardReportHead"/>
+        <include refid="standardReportMain"/>
+        <include refid="standardReportFoot"/>
+    </select>
+    <select id="standardReportFoot" resultType="mapUnderscoreToCamelCase">
+        <include refid="standardReportSumHead"/>
+        <include refid="standardReportMain"/>
+        <include refid="standardReportFoot"/>
+    </select>
+    <!--进销存报表-->
+    <sql id="goodsInvoicingReportHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="goodsInvoicingReportF">
+        SELECT SUM(t.cg_in_quantity) cg_in_quantity,SUM(t.cg_out_quantity) cg_out_quantity,SUM(t.cg_in_amount) cg_in_amount,SUM(t.cg_out_amount) cg_out_amount,
+        SUM(t.ly_in_quantity) ly_in_quantity,SUM(t.ly_out_quantity) ly_out_quantity,SUM(t.ly_in_amount) ly_in_amount,SUM(t.ly_out_amount) ly_out_amount,
+        SUM(t.ps_in_quantity) ps_in_quantity,SUM(t.ps_out_quantity) ps_out_quantity,SUM(t.ps_in_amount) ps_in_amount,SUM(t.ps_out_amount) ps_out_amount,
+        SUM(t.jg_in_quantity) jg_in_quantity,SUM(t.jg_out_quantity) jg_out_quantity,SUM(t.jg_in_amount) jg_in_amount,SUM(t.jg_out_amount) jg_out_amount,
+        SUM(t.sy_in_quantity) sy_in_quantity,SUM(t.sy_out_quantity) sy_out_quantity,SUM(t.sy_in_amount) sy_in_amount,SUM(t.sy_out_amount) sy_out_amount,
+        SUM(t.pd_in_quantity) pd_in_quantity,SUM(t.pd_out_quantity) pd_out_quantity,SUM(t.pd_in_amount) pd_in_amount,SUM(t.pd_out_amount) pd_out_amount,
+        SUM(t.sale_in_quantity) sale_in_quantity,SUM(t.sale_out_quantity) sale_out_quantity,SUM(t.sale_in_amount) sale_in_amount,SUM(t.sale_out_amount) sale_out_amount,
+        SUM(t.online_sale_in_quantity) online_sale_in_quantity,SUM(t.online_sale_out_quantity) online_sale_out_quantity,SUM(t.online_sale_in_amount) online_sale_in_amount,
+        SUM(t.online_sale_out_amount) online_sale_out_amount FROM (
+    </sql>
+    <sql id="goodsInvoicingReportMain">
+        SELECT g.id goods_id, g.goods_code,g.bar_code,g.category_name,g.goods_unit_name,IF(g.standard_name IS NULL or
+        g.standard_name="",g.goods_name,concat(g.goods_name,"(",g.standard_name,")")) goods_name,
+        SUM(gi.cg_in_quantity) cg_in_quantity, SUM(gi.cg_out_quantity) cg_out_quantity,
+        SUM(gi.cg_in_amount) cg_in_amount, SUM(gi.cg_out_amount) cg_out_amount,
+        SUM(gi.ly_in_quantity) ly_in_quantity,SUM(gi.ly_out_quantity) ly_out_quantity,
+        SUM(gi.ly_in_amount) ly_in_amount,SUM(gi.ly_out_amount) ly_out_amount,
+        SUM(gi.ps_in_quantity) ps_in_quantity, SUM(gi.ps_out_quantity) ps_out_quantity,
+        SUM(gi.ps_in_amount) ps_in_amount, SUM(gi.ps_out_amount) ps_out_amount,
+        SUM(gi.jg_in_quantity) jg_in_quantity, SUM(gi.jg_out_quantity) jg_out_quantity,
+        SUM(gi.jg_in_amount) jg_in_amount, SUM(gi.jg_out_amount) jg_out_amount,
+        SUM(gi.sy_in_quantity) sy_in_quantity, SUM(gi.sy_out_quantity) sy_out_quantity,
+        SUM(gi.sy_in_amount) sy_in_amount, SUM(gi.sy_out_amount) sy_out_amount,
+        SUM(gi.pd_in_quantity) pd_in_quantity, SUM(gi.pd_out_quantity) pd_out_quantity,
+        SUM(gi.pd_in_amount) pd_in_amount, SUM(gi.pd_out_amount) pd_out_amount,
+        SUM(gi.sale_in_quantity) sale_in_quantity, SUM(gi.sale_out_quantity) sale_out_quantity,
+        SUM(gi.sale_in_amount) sale_in_amount, SUM(gi.sale_out_amount) sale_out_amount,
+        SUM(gi.online_sale_in_quantity) online_sale_in_quantity, SUM(gi.online_sale_out_quantity)
+        online_sale_out_quantity,
+        SUM(gi.online_sale_in_amount) online_sale_in_amount, SUM(gi.online_sale_out_amount) online_sale_out_amount
+        FROM goods_invoicing gi LEFT JOIN goods g ON gi.goods_id = g.id
+        WHERE gi.tenant_id = ${tenantId} AND gi.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND gi.invoicing_date &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND gi.invoicing_date &lt;= '${endDate} 23:59:59'
+        </if>
+        <if test="goodsId != null and goodsId != ''">
+            AND gi.goods_id = ${goodsId}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND gi.branch_id IN (${branchId})
+        </if>
+        <if test="onlySelf == 1">
+            AND g.branch_id = ${gBranchId}
+        </if>
+        <if test="supplierId != null and supplierId != ''">
+            AND g.supplier_id = #{supplierId}
+        </if>
+        GROUP BY gi.goods_id
+    </sql>
+    <sql id="goodsInvoicingReportFoot">
+        ) t
+    </sql>
+    <select id="goodsInvoicingReport" resultType="mapUnderscoreToCamelCase">
+        <include refid="goodsInvoicingReportMain"/>
+        <if test="offset != null">
+            <include refid="pageFoot"/>
+        </if>
+    </select>
+    <select id="goodsInvoicingReportSum" resultType="java.lang.Long">
+        <include refid="goodsInvoicingReportHead"/>
+        <include refid="goodsInvoicingReportMain"/>
+        <include refid="goodsInvoicingReportFoot"/>
+    </select>
+    <select id="goodsInvoicingReportFoot" resultType="mapUnderscoreToCamelCase">
+        <include refid="goodsInvoicingReportF"/>
+        <include refid="goodsInvoicingReportMain"/>
+        <include refid="goodsInvoicingReportFoot"/>
+    </select>
+    <select id="beginAmount" resultType="mapUnderscoreToCamelCase">
+        SELECT gi.begin_quantity, gi.begin_amount FROM goods_invoicing gi WHERE gi.tenant_id = ${tenantId} AND
+        gi.branch_id IN (${branchId}) AND gi.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND gi.invoicing_date &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND gi.invoicing_date &lt;= '${endDate} 23:59:59'
+        </if>
+        <if test="goodsId != null and goodsId != ''">
+            AND gi.goods_id = ${goodsId}
+        </if>
+        ORDER BY gi.invoicing_date LIMIT 1
+    </select>
+    <select id="endAmount" resultType="mapUnderscoreToCamelCase">
+        SELECT gi.end_quantity, gi.end_amount FROM goods_invoicing gi WHERE gi.tenant_id = ${tenantId} AND gi.branch_id
+        IN (${branchId})
+        AND gi.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND gi.invoicing_date &gt;= '${startDate} 00:00:00'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND gi.invoicing_date &lt;= '${endDate} 23:59:59'
+        </if>
+        <if test="goodsId != null and goodsId != ''">
+            AND gi.goods_id = ${goodsId}
+        </if>
+        ORDER BY gi.invoicing_date DESC LIMIT 1
+    </select>
+    <!--根据单号查询详细信息-->
+    <select id="infoInTradeHistory" resultType="mapUnderscoreToCamelCase">
+        SELECT vt.trade_no, vt.trade_date, v.vip_name,v.phone  FROM vip_trade_history vt
+        LEFT JOIN vip v ON vt.vip_id = v.id WHERE vt.trade_no = '${tradeNo}' AND vt.tenant_id = ${tenantId} AND vt.trade_branch_id = ${branchId} AND vt.is_deleted = 0
+    </select>
+    <select id="infoInSale" resultType="mapUnderscoreToCamelCase">
+        SELECT s.total_amount, s.discount_amount, s.give_amount, s.received_amount, s.is_refund FROM sale s
+        WHERE s.sale_code = '${tradeNo}' AND s.tenant_id = ${tenantId} AND s.branch_id = ${branchId} AND s.is_deleted = 0
+    </select>
+    <select id="infoInSaleDetail" resultType="mapUnderscoreToCamelCase">
+        SELECT IF(g.standard_name IS NULL or g.standard_name="", g.goods_name, concat(g.goods_name,"(",g.standard_name,")")) goods_name,
+        sd.quantity, sd.sale_price, sd.total_amount goods_amount FROM sale_detail sd
+        LEFT JOIN goods g ON IF(sd.goods_id = 0, sd.package_id, sd.goods_id) = g.id
+        WHERE sd.sale_code = '${tradeNo}' AND sd.tenant_id = ${tenantId} AND sd.branch_id = ${branchId} AND sd.is_deleted = 0 AND sd.vip_id = #{vipId}
+    </select>
+    <select id="infoInPayment" resultType="mapUnderscoreToCamelCase">
+        SELECT p.payment_name, sp.amount, p.payment_code FROM sale_payment sp LEFT JOIN payment p ON sp.payment_id = p.id WHERE
+        sp.tenant_id = ${tenantId} AND sp.branch_id = ${branchId} AND sp.sale_code = '${tradeNo}' AND sp.is_deleted = 0
+    </select>
+
+    <!--查询商品的销售趋势-->
+    <select id="saleTrendAnalysis" resultType="mapUnderscoreToCamelCase">
+        SELECT t.create_at, t.real_quantity, t.real_amount, IF (t.is_store =
+        1,IFNULL(st.avg_amount,t.purchasing_price),t.purchasing_price)*t.real_quantity cost_amount,
+        t.real_amount-IF (t.is_store = 1,IFNULL(st.avg_amount,t.purchasing_price),t.purchasing_price)*t.real_quantity
+        gross_profit,
+        IF(t.real_amount=0,1,(t.real_amount - IF (t.is_store =
+        1,IFNULL(st.avg_amount,t.purchasing_price),t.purchasing_price) * t.real_quantity) / t.real_amount)*100
+        gross_rate
+        FROM (
+
+        SELECT DATE_FORMAT(s.create_at, '%Y-%m-%d') create_at,s.goods_id,IFNULL(g.purchasing_price, 0) purchasing_price,
+        SUM(IF(s.is_refund = 0, IF (s.is_free_of_charge = 1, 0+IFNULL(s.spec_amount,0),
+        s.received_amount+IFNULL(s.spec_amount,0)),
+        IF (s.is_free_of_charge = 1, 0-IFNULL(s.spec_amount,0) ,- 1 * (s.received_amount+IFNULL(s.spec_amount,0)))))
+        real_amount,
+        SUM(IF( s.is_refund = 0, s.quantity ,- 1 * s.quantity)) real_quantity,g.is_store,s.tenant_id,s.branch_id
+        FROM sale_detail s FORCE INDEX(idx_t_c)
+        LEFT JOIN goods g ON g.id= IF ( s.goods_id = 0, s.package_id, s.goods_id )
+        AND g.tenant_id = s.tenant_id
+        WHERE s.tenant_id = ${tenantId}
+        AND s.branch_id IN (${branchId})
+        AND s.create_at &gt;= '${startDate}'
+        AND s.create_at &lt;= '${endDate}'
+        AND s.is_deleted = 0
+        AND s.goods_id = ${goodsId}
+        <if test="isShowPackage == 0">
+            AND (s.package_id=0 OR (s.package_id!=0 AND s.goods_id=0))
+        </if>
+        <if test="isShowPackage == 1">
+            AND (s.package_id=0 OR (s.package_id!=0 AND s.goods_id!=0))
+        </if>
+        <if test="saleType != null and saleType == 0">
+            AND (s.trans_terminal IN (1,2,3,4) OR s.trans_terminal IS NULL)
+        </if>
+        <if test="saleType != null and saleType == 1">
+            AND s.trans_terminal IN (5,6,7,8,9)
+        </if>
+        GROUP BY DATE_FORMAT(s.create_at, '%Y-%m-%d') ORDER BY s.create_at
+
+        ) t
+        LEFT JOIN store st ON t.goods_id = st.goods_id AND t.tenant_id = st.tenant_id AND t.branch_id = st.branch_id AND
+        st.is_deleted = 0
+        WHERE t.real_quantity != 0
+    </select>
+
+    <select id="storePayWays" resultType="mapUnderscoreToCamelCase">
+        SELECT vsh.payment_id, p.payment_code, p.payment_name FROM vip_store_history vsh
+        INNER JOIN payment p ON vsh.tenant_id = p.tenant_id AND vsh.payment_id = p.id
+        WHERE vsh.is_deleted = 0 AND vsh.store_type = 1
+        AND vsh.tenant_id = #{tenantId}
+        <if test="startDate != null and startDate != ''">
+            AND vsh.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vsh.create_at &lt;= #{endDate}
+        </if>
+        GROUP BY vsh.payment_id
+    </select>
+
+    <!--机构收款汇总-->
+    <select id="gatheringOfBranchReport" resultType="mapUnderscoreToCamelCase">
+        SELECT id, code branch_code, name branch_name, SUM(IFNULL(pay_total_amount,0))+SUM(IFNULL(store_amount,0)) total_amount,
+        SUM(IFNULL(pay_total_amount,0)) pay_amount, SUM(IFNULL(store_amount,0)) store_amount,
+        SUM(IFNULL(long_amount,0)) long_amount
+        <foreach collection="payWays" item="item">
+            ,SUM(IFNULL(ZF${item.paymentId},0)) 'ZF${item.paymentId}'
+            ,SUM(IFNULL(ZF${item.paymentId}_long_amount,0)) 'ZF${item.paymentId}_long_amount'
+        </foreach>
+        <foreach collection="storePayWays" item="item">
+            ,SUM(IFNULL(CZ${item.paymentId},0)) 'CZ${item.paymentId}'
+        </foreach>
+        FROM (
+        (SELECT * FROM branch b WHERE b.tenant_id = #{tenantId} AND b.is_deleted = 0
+        <if test="(areaId == null or areaId == '') and branchId != null and branchId != ''">
+            AND id = #{branchId}
+        </if>
+        <if test="areaId != null and areaId != ''">
+            AND (b.area_id IN(${areaId}) OR b.id = #{branchId})
+        </if>
+        <if test="nameOrCode != null and nameOrCode != ''">
+            AND (b.name LIKE '%${nameOrCode}%' OR b.code LIKE '%${nameOrCode}%')
+        </if>
+        ) b
+        LEFT JOIN
+        (SELECT p.tenant_id, p.branch_id, SUM(IF(p.is_refund =
+        1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))))
+        pay_total_amount,
+        SUM(IF(p.is_long_amount = 1,IF(p.is_refund = 1,-1*ABS(p.amount),ABS(p.amount)),0)) long_amount
+        <foreach collection="payWays" item="pay">
+            ,SUM(IF( LOWER(t.payment_code) = '${pay.paymentCode}'AND t.id='${pay.paymentId}' , IF(p.is_refund =
+            1,(IF(p.is_long_amount,ABS(p.amount),-1*ABS(p.amount))),(IF(p.is_long_amount,-1*ABS(p.amount),ABS(p.amount)))
+            ),0)) 'ZF${pay.paymentId}',
+            SUM(IF(p.is_long_amount = 1 AND LOWER(t.payment_code) = '${pay.paymentCode}',
+            IF(p.is_refund = 1,-1*ABS(p.amount),ABS(p.amount)),0)) 'ZF${pay.paymentId}_long_amount'
+        </foreach>
+        FROM
+        sale_payment p
+        INNER JOIN payment t ON p.tenant_id = t.tenant_id AND p.payment_id = t.id
+        WHERE p.tenant_id=${tenantId} AND p.is_deleted=0
+        <if test="startDate != null and startDate != ''">
+            AND p.payment_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND p.payment_at &lt;= '${endDate}'
+        </if>
+        <if test="payType != null and payType != ''">
+            <if test="payType == 1">
+                AND (p.pay_type = #{payType} OR p.pay_type IS NULL)
+            </if>
+            <if test="payType != 1">
+                AND p.pay_type = #{payType}
+            </if>
+        </if>
+        GROUP BY p.branch_id) pay ON b.tenant_id = pay.tenant_id AND b.id = pay.branch_id
+        LEFT JOIN
+        (SELECT vsh.tenant_id, vsh.store_branch_id, SUM(IF(vsh.store_type=2,-vsh.pay_amount,vsh.pay_amount)) store_amount
+        <foreach collection="storePayWays" item="pay">
+            ,SUM(IF(LOWER(t.payment_code)='${pay.paymentCode}' AND t.id='${pay.paymentId}',
+            IF(vsh.store_type = 2,-vsh.pay_amount,vsh.pay_amount),0)) 'CZ${pay.paymentId}'
+        </foreach>
+        FROM vip_store_history vsh
+        INNER JOIN
+        (SELECT tenant_id, id,payment_code,payment_name FROM payment WHERE tenant_id = #{tenantId})t
+        ON vsh.tenant_id = t.tenant_id AND vsh.payment_id = t.id
+        WHERE vsh.tenant_id = #{tenantId} AND vsh.is_deleted = 0 AND vsh.store_type IN (1,2)
+        <if test="startDate != null and startDate != ''">
+            AND vsh.create_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vsh.create_at &lt;= '${endDate}'
+        </if>
+        GROUP BY vsh.store_branch_id
+        ) store ON b.tenant_id = store.tenant_id AND b.id = store.store_branch_id
+        ) GROUP BY id
+        <if test="offset != null and rows != null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+
+    <select id="getAllPayWays" resultType="mapUnderscoreToCamelCase">
+        SELECT CONCAT('ZF',sp.payment_id) payment_id, p.payment_name, p.payment_code FROM sale_payment sp
+        INNER JOIN payment p ON sp.tenant_id = p.tenant_id AND sp.payment_id = p.id
+        WHERE sp.tenant_id = #{tenantId} AND sp.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND sp.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND sp.create_at &lt;= #{endDate}
+        </if>
+        GROUP BY sp.payment_id
+        UNION ALL
+        SELECT CONCAT('CZ',vsh.payment_id) payment_id, p.payment_name, p.payment_code FROM vip_store_history vsh
+        INNER JOIN payment p ON vsh.tenant_id = p.tenant_id AND vsh.payment_id = p.id
+        WHERE vsh.tenant_id = #{tenantId} AND vsh.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+           AND vsh.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vsh.create_at &lt;= #{endDate}
+        </if>
+        GROUP BY vsh.payment_id
+    </select>
+
+    <!--会员对账报表-->
+    <select id="vipStatementReport" resultType="mapUnderscoreToCamelCase">
+        SELECT vs.vip_id, v.vip_name, vt.type_name, SUM(vs.store_amount) store_amount, SUM(vs.pay_amount) pay_amount, SUM(vs.draw_amount) draw_amount FROM vip_statement vs
+        INNER JOIN vip v ON vs.tenant_id = v.tenant_id AND vs.vip_id = v.id
+        INNER JOIN vip_type vt ON vs.tenant_id = vt.tenant_id AND vs.type_id = vt.id
+        WHERE vs.tenant_id = #{tenantId} AND vs.branch_id = #{branchId} AND vs.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND vs.reconciliation_date &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vs.reconciliation_date &lt;= '${endDate}'
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vs.vip_id = #{vipId}
+        </if>
+        <if test="typeId != null and typeId != ''">
+            AND vs.type_id = #{typeId}
+        </if>
+        GROUP BY vs.vip_id
+        <if test="offset!= null and rows != null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="vipStatementReportSum" resultType="mapUnderscoreToCamelCase">
+        SELECT COUNT(*) total, SUM(vs.store_amount) store_amount, SUM(vs.pay_amount) pay_amount, SUM(vs.draw_amount) draw_amount
+        FROM vip_statement vs
+        WHERE vs.tenant_id = #{tenantId} AND vs.branch_id = #{branchId} AND vs.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND vs.reconciliation_date &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vs.reconciliation_date &lt;= '${endDate}'
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vs.vip_id = #{vipId}
+        </if>
+        <if test="typeId != null and typeId != ''">
+            AND vs.type_id = #{typeId}
+        </if>
+    </select>
+    <select id="vipBeginAmount" resultType="mapUnderscoreToCamelCase">
+        SELECT vs.begin_amount FROM vip_statement vs WHERE vs.tenant_id = #{tenantId} AND vs.branch_id = #{branchId} AND vs.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND vs.reconciliation_date &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vs.reconciliation_date &lt;= '${endDate}'
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vs.vip_id = #{vipId}
+        </if>
+        <if test="typeId != null and typeId != ''">
+            AND vs.type_id = #{typeId}
+        </if>
+        ORDER BY vs.reconciliation_date LIMIT 1
+    </select>
+    <select id="vipEndAmount" resultType="mapUnderscoreToCamelCase">
+        SELECT vs.end_amount FROM vip_statement vs WHERE vs.tenant_id = #{tenantId} AND vs.branch_id = #{branchId} AND vs.is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND vs.reconciliation_date &gt;= '${startDate}'
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND vs.reconciliation_date &lt;= '${endDate}'
+        </if>
+        <if test="vipId != null and vipId != ''">
+            AND vs.vip_id = #{vipId}
+        </if>
+        <if test="typeId != null and typeId != ''">
+            AND vs.type_id = #{typeId}
+        </if>
+        ORDER BY vs.reconciliation_date DESC LIMIT 1
+    </select>
+
+    <!--机构销售日报-->
+    <select id="branchSaleDaily" resultType="mapUnderscoreToCamelCase">
+        SELECT b.*, a.code area_code, a.name area_name, IFNULL(s1.today_amount, 0) today_amount, IFNULL(s2.all_amount, 0) all_amount, IFNULL(s1.today_amount/s2.all_amount, 0) * 100 branch_rate,
+        IFNULL(s3.last_year_day_amount, 0) last_year_day_amount, IFNULL(s1.today_amount/IFNULL(s3.last_year_day_amount, 1), 0) * 100 last_year_day_compare,
+        IFNULL(s4.yesterday_amount, 0) yesterday_amount, IFNULL(s1.today_amount/IFNULL(s4.yesterday_amount, 1), 0) * 100 yesterday_compare,
+        IFNULL(s5.month_amount, 0) month_amount, IFNULL(s6.last_year_month_amount,0) last_year_month_amount, IFNULL(s5.month_amount/IFNULL(s6.last_year_month_amount, 1), 0) * 100 last_year_month_compare,
+        IFNULL(s7.last_month_amount, 0) last_month_amount, IFNULL(s5.month_amount/IFNULL(s7.last_month_amount, 1), 0) * 100 last_month_compare,
+        IFNULL(s8.year_amount, 0) year_amount, IFNULL(s9.last_year_amount, 0) last_year_amount, IFNULL(s8.year_amount/IFNULL(s9.last_year_amount, 1), 0) * 100 last_year_compare
+        FROM (
+        (SELECT b.id, b.code branch_code, b.name branch_name, b.tenant_id, b.area_id FROM branch b WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="branchId != null and branchId != ''">
+            AND b.id = #{branchId}
+        </if>
+        ) b
+        LEFT JOIN area a ON b.tenant_id = a.tenant_id AND b.area_id = a.id
+        <if test="areaId != null and areaId != ''">
+            AND a.id = #{areaId}
+        </if>
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) today_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND s.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.create_at &lt;= #{endDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s1 ON b.id = s1.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) all_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND s.create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND s.create_at &lt;= #{endDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        ) s2 ON b.id = s2.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_day_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastYearDayStartDate != null and lastYearDayStartDate != ''">
+            AND s.create_at &gt;= #{lastYearDayStartDate}
+        </if>
+        <if test="lastYearDayEndDate != null and lastYearDayEndDate != ''">
+            AND s.create_at &lt;= #{lastYearDayEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s3 ON b.id = s3.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) yesterday_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="yesterdayStartDate != null and yesterdayStartDate != ''">
+            AND s.create_at &gt;= #{yesterdayStartDate}
+        </if>
+        <if test="yesterdayEndDate != null and yesterdayEndDate != ''">
+            AND s.create_at &lt;= #{yesterdayEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s4 ON b.id = s4.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) month_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="monthStartDate != null and monthStartDate != ''">
+            AND s.create_at &gt;= #{monthStartDate}
+        </if>
+        <if test="monthEndDate != null and monthEndDate != ''">
+            AND s.create_at &lt;= #{monthEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s5 ON b.id = s5.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_month_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastYearMonthStartDate != null and lastYearMonthStartDate != ''">
+            AND s.create_at &gt;= #{lastYearMonthStartDate}
+        </if>
+        <if test="lastYearMonthEndDate != null and lastYearMonthEndDate != ''">
+            AND s.create_at &lt;= #{lastYearMonthEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s6 ON b.id = s6.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_month_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastMonthStartDate != null and lastMonthStartDate != ''">
+            AND s.create_at &gt;= #{lastMonthStartDate}
+        </if>
+        <if test="lastMonthEndDate != null and lastMonthEndDate != ''">
+            AND s.create_at &lt;= #{lastMonthEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id)  s7 ON b.id = s7.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) year_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="yearStartDate != null and yearStartDate != ''">
+            AND s.create_at &gt;= #{yearStartDate}
+        </if>
+        <if test="yearEndDate != null and yearEndDate != ''">
+            AND s.create_at &lt;= #{yearEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s8 ON b.id = s8.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastYearStartDate != null and lastYearStartDate != ''">
+            AND s.create_at &gt;= #{lastYearStartDate}
+        </if>
+        <if test="lastYearEndDate != null and lastYearEndDate != ''">
+            AND s.create_at &lt;= #{lastYearEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s9 ON b.id = s9.branch_id) GROUP BY b.id ORDER BY a.code
+        <if test="offset != null and rows != null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="branchSaleDailySum" resultType="mapUnderscoreToCamelCase">
+        SELECT count(*) total, (IFNULL(s1.today_amount, 0)) today_amount, SUM(IFNULL(s2.all_amount, 0)) all_amount,
+        IFNULL(SUM(s1.today_amount)/SUM(s2.all_amount), 0) * 100 branch_rate,
+        SUM(IFNULL(s3.last_year_day_amount, 0)) last_year_day_amount, IFNULL(SUM(s1.today_amount)/SUM(IFNULL(s3.last_year_day_amount, 1)), 0) * 100 last_year_day_compare,
+        SUM(IFNULL(s4.yesterday_amount, 0)) yesterday_amount, IFNULL(SUM(s1.today_amount)/SUM(IFNULL(s4.yesterday_amount, 1)), 0) * 100 yesterday_compare,
+        SUM(IFNULL(s5.month_amount, 0)) month_amount, SUM(IFNULL(s6.last_year_month_amount,0)) last_year_month_amount,
+        IFNULL(SUM(s5.month_amount)/SUM(IFNULL(s6.last_year_month_amount, 1)), 0) * 100 last_year_month_compare,
+        SUM(IFNULL(s7.last_month_amount, 0)) last_month_amount, IFNULL(SUM(s5.month_amount)/SUM(IFNULL(s7.last_month_amount, 1)), 0) * 100 last_month_compare,
+        SUM(IFNULL(s8.year_amount, 0)) year_amount, SUM(IFNULL(s9.last_year_amount, 0)) last_year_amount,
+        IFNULL(SUM(s8.year_amount)/SUM(IFNULL(s9.last_year_amount, 1)), 0) * 100 last_year_compare
+        FROM (
+        (SELECT b.id, b.code, b.name, b.tenant_id, b.area_id FROM branch b WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="branchId != null and branchId != ''">
+            AND b.id = #{branchId}
+        </if>
+        ) b
+        LEFT JOIN area a ON b.tenant_id = a.tenant_id AND b.area_id = a.id
+        <if test="areaId != null and areaId != ''">
+            AND a.id = #{areaId}
+        </if>
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) today_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND create_at &lt;= #{endDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s1 ON b.id = s1.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) all_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND create_at &lt;= #{endDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        ) s2 ON b.id = s2.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_day_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastYearDayStartDate != null and lastYearDayStartDate != ''">
+            AND create_at &gt;= #{lastYearDayStartDate}
+        </if>
+        <if test="lastYearDayEndDate != null and lastYearDayEndDate != ''">
+            AND create_at &lt;= #{lastYearDayEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s3 ON b.id = s3.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) yesterday_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="yesterdayStartDate != null and yesterdayStartDate != ''">
+            AND create_at &gt;= #{yesterdayStartDate}
+        </if>
+        <if test="yesterdayEndDate != null and yesterdayEndDate != ''">
+            AND create_at &lt;= #{yesterdayEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s4 ON b.id = s4.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) month_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="monthStartDate != null and monthStartDate != ''">
+            AND create_at &gt;= #{monthStartDate}
+        </if>
+        <if test="monthEndDate != null and monthEndDate != ''">
+            AND create_at &lt;= #{monthEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s5 ON b.id = s5.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_month_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastYearMonthStartDate != null and lastYearMonthStartDate != ''">
+            AND create_at &gt;= #{lastYearMonthStartDate}
+        </if>
+        <if test="lastYearMonthEndDate != null and lastYearMonthEndDate != ''">
+            AND create_at &lt;= #{lastYearMonthEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s6 ON b.id = s6.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_month_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastMonthStartDate != null and lastMonthStartDate != ''">
+            AND create_at &gt;= #{lastMonthStartDate}
+        </if>
+        <if test="lastMonthEndDate != null and lastMonthEndDate != ''">
+            AND create_at &lt;= #{lastMonthEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id)  s7 ON b.id = s7.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) year_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="yearStartDate != null and yearStartDate != ''">
+            AND create_at &gt;= #{yearStartDate}
+        </if>
+        <if test="yearEndDate != null and yearEndDate != ''">
+            AND create_at &lt;= #{yearEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s8 ON b.id = s8.branch_id
+
+        LEFT JOIN
+        (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_amount, s.branch_id FROM sale s WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastYearStartDate != null and lastYearStartDate != ''">
+            AND create_at &gt;= #{lastYearStartDate}
+        </if>
+        <if test="lastYearEndDate != null and lastYearEndDate != ''">
+            AND create_at &lt;= #{lastYearEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s9 ON b.id = s9.branch_id)
+    </select>
+
+    <!--机构销售区间日报-->
+    <select id="branchIntervalDaily" resultType="mapUnderscoreToCamelCase">
+        SELECT b.*, a.code area_code, a.name area_name, IFNULL(s1.period_amount, 0) period_amount, IFNULL(s2.all_amount, 0) all_amount, IFNULL(s1.period_amount/s2.all_amount, 0) * 100 branch_rate,
+        IFNULL(s3.last_year_period_amount, 0) last_year_period_amount, IFNULL(s1.period_amount/IFNULL(s3.last_year_period_amount, 1), 0) * 100 last_year_period_compare,
+        IFNULL(s4.year_amount, 0) year_amount, IFNULL(s5.last_year_amount, 0) last_year_amount,
+        IFNULL(s4.year_amount/IFNULL(s5.last_year_amount, 1), 0) * 100 last_year_compare FROM (
+        (SELECT b.id, b.code branch_code, b.name branch_name, b.tenant_id, b.area_id FROM branch b WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="branchId != null and branchId != ''">
+            AND b.id = #{branchId}
+        </if>
+        ) b
+        LEFT JOIN area a ON b.tenant_id = a.tenant_id AND b.area_id = a.id
+        <if test="areaId != null and areaId != ''">
+            AND a.id = #{areaId}
+        </if>
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) period_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND create_at &lt;= #{endDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s1 ON b.id = s1.branch_id
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) all_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND create_at &lt;= #{endDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        ) s2 ON b.id = s2.branch_id
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_period_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastStartDate != null and lastStartDate != ''">
+            AND create_at &gt;= #{lastStartDate}
+        </if>
+        <if test="lastEndDate != null and lastEndDate != ''">
+            AND create_at &lt;= #{lastEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s3 ON b.id = s3.branch_id
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) year_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="yearStartDate != null and yearStartDate != ''">
+            AND create_at &gt;= #{yearStartDate}
+        </if>
+        <if test="yearEndDate != null and yearEndDate != ''">
+            AND create_at &lt;= #{endDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s4 ON b.id = s4.branch_id
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastYearStartDate != null and lastYearStartDate != ''">
+            AND create_at &gt;= #{lastYearStartDate}
+        </if>
+        <if test="lastYearEndDate != null and lastYearEndDate != ''">
+            AND create_at &lt;= #{lastYearEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s5 ON b.id = s5.branch_id)
+        GROUP BY b.id ORDER BY a.code
+        <if test="offset != null and rows != null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="branchIntervalDailySum" resultType="mapUnderscoreToCamelCase">
+        SELECT count(*) total, SUM(IFNULL(s1.period_amount, 0)) period_amount, SUM(IFNULL(s2.all_amount, 0)) all_amount,
+        IFNULL(SUM(s1.period_amount)/SUM(s2.all_amount), 0) * 100 branch_rate,
+        SUM(IFNULL(s3.last_year_period_amount, 0)) last_year_period_amount, IFNULL(SUM(s1.period_amount)/SUM(IFNULL(s3.last_year_period_amount, 1)), 0) * 100 last_year_period_compare,
+        SUM(IFNULL(s4.year_amount, 0)) year_amount, SUM(IFNULL(s5.last_year_amount, 0)) last_year_amount,
+        IFNULL(SUM(s4.year_amount)/SUM(IFNULL(s5.last_year_amount, 1)), 0) * 100 last_year_compare FROM (
+        (SELECT b.id, b.code branch_code, b.name branch_name, b.tenant_id, b.area_id FROM branch b WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="branchId != null and branchId != ''">
+            AND b.id = #{branchId}
+        </if>
+        ) b
+        LEFT JOIN area a ON b.tenant_id = a.tenant_id AND b.area_id = a.id
+        <if test="areaId != null and areaId != ''">
+            AND a.id = #{areaId}
+        </if>
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) period_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND create_at &lt;= #{endDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s1 ON b.id = s1.branch_id
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) all_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="startDate != null and startDate != ''">
+            AND create_at &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND create_at &lt;= #{endDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        ) s2 ON b.id = s2.branch_id
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_period_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastStartDate != null and lastStartDate != ''">
+            AND create_at &gt;= #{lastStartDate}
+        </if>
+        <if test="lastEndDate != null and lastEndDate != ''">
+            AND create_at &lt;= #{lastEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s3 ON b.id = s3.branch_id
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) year_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="yearStartDate != null and yearStartDate != ''">
+            AND create_at &gt;= #{yearStartDate}
+        </if>
+        <if test="yearEndDate != null and yearEndDate != ''">
+            AND create_at &lt;= #{yearEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s4 ON b.id = s4.branch_id
+        LEFT JOIN (SELECT SUM(IF(s.is_refund = 1,-s.received_amount, s.received_amount)) last_year_amount, s.branch_id FROM sale s
+        WHERE tenant_id = #{tenantId} AND is_deleted = 0
+        <if test="lastYearStartDate != null and lastYearStartDate != ''">
+            AND create_at &gt;= #{lastYearStartDate}
+        </if>
+        <if test="lastYearEndDate != null and lastYearEndDate != ''">
+            AND create_at &lt;= #{lastYearEndDate}
+        </if>
+        <if test="branchId != null and branchId != ''">
+            AND s.branch_id = #{branchId}
+        </if>
+        GROUP BY s.branch_id) s5 ON b.id = s5.branch_id)
+    </select>
+    <select id="getSaleInfo" resultType="mapUnderscoreToCamelCase">
+        SELECT s.*,e.`name` cashier_name,b.`name` branch_name
+        FROM sale s
+		LEFT JOIN branch b ON b.tenant_id=s.tenant_id AND b.id=s.branch_id
+        LEFT JOIN employee e ON e.tenant_id=s.tenant_id AND e.id=s.cashier
+        WHERE s.is_deleted=0
+        AND s.tenant_id=#{tenantId}
+        AND s.branch_id=#{branchId}
+        AND s.sale_code=#{saleCode}
+        ORDER BY s.id ASC
+    </select>
+    <select id="getSaleDetailInfo" resultType="mapUnderscoreToCamelCase">
+        SELECT sd.*,g.goods_name
+        FROM sale_detail sd
+        LEFT JOIN goods g ON g.tenant_id=sd.tenant_id AND g.id = IF(sd.goods_id=0,sd.package_id,sd.goods_id)
+        WHERE sd.is_deleted=0
+        AND sd.tenant_id=#{tenantId}
+        AND sd.branch_id=#{branchId}
+        AND sd.sale_code=#{saleCode}
+        ORDER BY sd.id ASC
+    </select>
+    <select id="getSalePaymentInfo" resultType="mapUnderscoreToCamelCase">
+        SELECT sp.*,p.payment_name
+        FROM sale_payment sp
+        LEFT JOIN payment p ON p.tenant_id=sp.tenant_id AND p.id=sp.payment_id
+        WHERE sp.is_deleted=0
+        AND sp.tenant_id=#{tenantId}
+        AND sp.branch_id=#{branchId}
+        AND sp.sale_code=#{saleCode}
+        ORDER BY sp.id ASC
+    </select>
+</mapper>

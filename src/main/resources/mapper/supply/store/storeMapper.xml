@@ -1,0 +1,675 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="erp.chain.mapper.supply.store.StoreMapper">
+
+    <select id="queryGoodsStoreInfoList" resultType="goodsStoreInfo">
+        SELECT
+        g.purchasing_price,
+        g.id goods_id,
+        g.is_store,
+        g.combination_type,
+        g.tenant_id,
+        gb.code goods_branch_code,
+        ${bId} branch_id,
+        s.id store_id,
+        s.quantity,
+        s.avg_amount,
+        s.store_amount,
+        s.version store_version,
+        GROUP_CONCAT(re.goods_id) relation_goods_ids
+        FROM
+        goods g
+        inner join branch gb
+        on g.branch_id = gb.id
+        LEFT JOIN store s
+        ON g.tenant_id = s.tenant_id
+        AND s.branch_id = #{bId}
+        AND s.goods_id = g.id
+        AND s.is_deleted = 0
+        LEFT JOIN goods_produce_relation re
+        ON g.id = re.produce_goods_id
+        AND re.is_deleted = 0
+        WHERE 1=1
+        AND g.tenant_id = #{tId}
+        AND g.is_deleted = 0
+        <foreach collection="goodsIds" open="AND (" close=")" separator=" OR " item="item">
+            g.id = #{item}
+        </foreach>
+        <!--<if test="isStore">-->
+            <!--and g.is_store = 1-->
+        <!--</if>-->
+        GROUP BY g.id
+    </select>
+
+
+    <update id="updateStore" parameterType="store">
+		UPDATE
+            store s
+        SET
+            s.version = next_version(s.version),
+            s.last_update_at = #{lastUpdateAt},
+            s.quantity = #{quantity},
+            s.avg_amount = #{avgAmount},
+            s.store_amount = #{storeAmount},
+            s.store_at = #{storeAt}
+        WHERE s.id = #{id} and s.version = #{version}
+	</update>
+
+    <insert id="saveStore" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO store (
+          create_at,last_update_at,
+          is_deleted,tenant_id,branch_id,storage_id,
+          goods_id,quantity, avg_amount,
+          store_at,store_amount)
+          VALUE (#{createAt}, #{lastUpdateAt},
+          0, ${tenantId}, #{branchId},
+          NULL, #{goodsId}, #{quantity}, #{avgAmount}, #{storeAt}, #{storeAmount})
+    </insert>
+
+    <insert id="saveStoreAccount" parameterType="storeAccount">
+        INSERT INTO store_account (
+          create_at,last_update_at,is_deleted,
+          tenant_id, branch_id,
+          occur_incurred,occur_quantity,occur_amount,
+          goods_id, occur_at,
+          store_incurred, store_quantity, store_amount,
+          occur_type, order_code,store_account_at,
+          create_by,last_update_by
+        ) VALUE 
+        (#{createAt},#{lastUpdateAt},#{isDeleted},${tenantId},#{branchId},
+        #{occurIncurred} ,#{occurQuantity},#{occurAmount},
+        #{goodsId},#{occurAt},#{storeIncurred},#{storeQuantity},#{storeAmount},#{occurType},
+        #{occurCode},#{storeAccountAt},#{createBy},#{lastUpdateBy})
+    </insert>
+
+    <update id="updateGoodsPurchasingPrice">
+        UPDATE goods set purchasing_price = #{purchasingPrice} where id = #{goodsId}
+    </update>
+
+
+    <!-- mysql 分页头 -->
+    <sql id="pagination_Head">
+        <![CDATA[
+        select row_.* from (
+        ]]>
+    </sql>
+    <!-- mysql 分页尾 -->
+    <sql id="pagination_Tail">
+        <![CDATA[
+        ) row_  LIMIT #{pager.firstPage},#{pager.lastPage}
+        ]]>
+    </sql>
+    <!-- count * from -->
+    <sql id="count_Start_Head">
+        <![CDATA[
+        select count(*) count from (
+        ]]>
+    </sql>
+    <sql id="count_Start_Tail">
+        <![CDATA[
+        ) t
+        ]]>
+    </sql>
+    <sql id="order_head">
+        <![CDATA[ SELECT order_.* from ( ]]>
+    </sql>
+    <sql id="order_by">
+        <![CDATA[ ) order_ ]]>
+        <if test="pager.orderProperty != null and pager.order != null">
+            ORDER BY ${pager.orderProperty} ${pager.order}
+        </if>
+    </sql>
+
+    <sql id="queryStoreAccountColumn">
+       <![CDATA[
+        SELECT
+          sa.occur_at,sa.order_code,sa.occur_type,g.bar_code,
+          sa.occur_incurred,sa.occur_quantity,sa.occur_amount,
+          g.goods_code,IF (
+          g.standard_name IS NULL or g.standard_name="",
+          g.goods_name,
+          concat(g.goods_name,"(",g.standard_name,")")
+          ) goods_name,e.code emp_code,e.login_name,
+          e.name emp_name,sa.store_account_at, g.branch_id
+        FROM
+          store_account sa
+          INNER JOIN goods g
+            ON sa.tenant_id=g.tenant_id AND sa.goods_id = g.id
+            AND sa.is_deleted = 0
+          LEFT JOIN employee e
+            ON e.tenant_id=sa.tenant_id AND e.id = sa.create_by
+        WHERE
+            sa.tenant_id = #{tenantId}
+            AND sa.branch_id = #{branchId}
+            AND sa.store_account_at >= '${startDate}:00'
+            AND sa.store_account_at <= '${endDate}:59'
+        ]]>
+        <if test="occurType != null" >
+            AND sa.occur_type = #{occurType}
+        </if>
+        <if test="occurIncurredMin != null" >
+            <![CDATA[ AND sa.occur_incurred >= #{occurIncurredMin} ]]>
+        </if>
+        <if test="occurIncurredMax != null" >
+            <![CDATA[ AND sa.occur_incurred <= #{occurIncurredMax} ]]>
+        </if>
+        <if test="occurQuantityMin != null" >
+            <![CDATA[ AND sa.occur_quantity >= #{occurQuantityMin} ]]>
+        </if>
+        <if test="occurQuantityMax != null" >
+            <![CDATA[ AND sa.occur_quantity <= #{occurQuantityMax} ]]>
+        </if>
+        <if test="occurAmountMin != null" >
+            <![CDATA[ AND sa.occur_amount >= #{occurAmountMin} ]]>
+        </if>
+        <if test="occurAmountMax != null" >
+            <![CDATA[ AND sa.occur_amount <= #{occurAmountMax} ]]>
+        </if>
+        <if test="goodsOrOrderCodeLike != null" >
+            <![CDATA[ AND( g.goods_code LIKE #{goodsOrOrderCodeLike} OR sa.order_code LIKE #{goodsOrOrderCodeLike} OR g.goods_name LIKE #{goodsOrOrderCodeLike} ) ]]>
+        </if>
+        <if test="goodsOrOrderEmpCode != null" >
+            <![CDATA[ AND( g.goods_code = '#{goodsOrOrderEmpCode}'
+         OR sa.order_code= '#{goodsOrOrderEmpCode}' OR e.code= '#{goodsOrOrderEmpCode}') ]]>
+        </if>
+        <if test="goodsId != null">
+            <![CDATA[ AND sa.goods_id = #{goodsId} ]]>
+        </if>
+    </sql>
+    <!--分页查询库存流水-->
+    <select id="queryStoreAccountPager" resultType="mapUnderscoreToCamelCase" >
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="queryStoreAccountColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <!--统计库存流水-->
+    <select id="queryStoreAccountCount" resultType="mapUnderscoreToCamelCase">
+        <![CDATA[
+        /*sum(occur_incurred) occur_incurred,*/
+        select count(*) count ,sum(occur_quantity)occur_quantity,sum(occur_amount)occur_amount from (
+        ]]>
+        <include refid="queryStoreAccountColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <!--分页查询机构库存-->
+    <select id="queryStorePager" resultType="mapUnderscoreToCamelCase" >
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="queryStoreColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <!--统计机构库存-->
+    <select id="queryStoreCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="queryStoreColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <!--机构库存footer-->
+    <select id="queryStoreFooter" resultType="mapUnderscoreToCamelCase">
+        SELECT SUM(t.purchasing_price) purchasing_price, SUM(t.quantity) quantity, SUM(t.avg_amount) avg_amount, SUM(t.store_amount) store_amount
+        FROM (
+        <![CDATA[
+        SELECT
+          g.id goods_id,g.goods_code,g.bar_code,
+          IF (
+          g.standard_name IS NULL or g.standard_name="",
+          g.goods_name,
+          concat(g.goods_name,"(",g.standard_name,")")
+          ) goods_name,u.unit_name,
+          g.purchasing_price,g.category_name,s.quantity,s.avg_amount,
+          s.store_amount ,s.last_update_at
+        FROM
+          store s
+          INNER JOIN goods g
+            ON s.goods_id = g.id
+            AND g.is_deleted = 0
+            AND g.is_store = 1
+          LEFT JOIN goods_unit u
+            ON g.goods_unit_id = u.id
+        WHERE s.is_deleted = 0
+          AND s.tenant_id = ${tenantId}
+          AND s.branch_id = #{branchId}
+        ]]>
+        <if test="catIdArray != null" >
+            <foreach collection="catIdArray" item="item" open="and ( " close=" )" separator=" or">
+                g.category_id = #{item}
+            </foreach>
+        </if>
+        <if test="incurredMin != null" >
+            <![CDATA[ AND s.avg_amount >= #{incurredMin} ]]>
+        </if>
+        <if test="incurredMax != null" >
+            <![CDATA[ AND s.avg_amount <= #{incurredMax} ]]>
+        </if>
+        <if test="quantityMin != null" >
+            <![CDATA[ AND s.quantity >= #{quantityMin} ]]>
+        </if>
+        <if test="quantityMax != null" >
+            <![CDATA[ AND s.quantity <= #{quantityMax} ]]>
+        </if>
+        <if test="amountMin != null" >
+            <![CDATA[ AND s.store_amount >= #{amountMin} ]]>
+        </if>
+        <if test="amountMax != null" >
+            <![CDATA[ AND s.store_amount <= #{amountMax} ]]>
+        </if>
+        <if test="goodsNameOrCodeLike != null" >
+            <![CDATA[ AND( g.goods_code LIKE #{goodsNameOrCodeLike}  OR g.goods_name LIKE #{goodsNameOrCodeLike} OR g.mnemonic LIKE #{goodsNameOrCodeLike} OR g.bar_code LIKE #{goodsNameOrCodeLike}) ]]>
+        </if>
+        <if test="supplierId != null and supplierId != ''">
+            <![CDATA[ AND g.supplier_id IN (${supplierId}) ]]>
+        </if>
+        <if test="onlySelf == 1">
+            AND g.branch_id=#{branchId}
+        </if>
+        ) t
+    </select>
+    <sql id="queryStoreColumn">
+        <![CDATA[
+        SELECT
+          g.branch_id,g.id goods_id,g.goods_code,g.bar_code,
+          IF (
+          g.standard_name IS NULL or g.standard_name="",
+          g.goods_name,
+          concat(g.goods_name,"(",g.standard_name,")")
+          ) goods_name,u.unit_name,
+          g.purchasing_price,g.category_name,s.quantity,s.avg_amount,
+          s.store_amount ,s.last_update_at
+        FROM
+          store s
+          INNER JOIN goods g
+            ON s.goods_id = g.id
+            AND g.is_deleted = 0
+            AND g.is_store = 1
+          LEFT JOIN goods_unit u
+            ON g.goods_unit_id = u.id
+        WHERE s.is_deleted = 0
+          AND s.tenant_id = ${tenantId}
+          AND s.branch_id = #{branchId}
+        ]]>
+        <if test="catIdArray != null" >
+            <foreach collection="catIdArray" item="item" open="and ( " close=" )" separator=" or">
+                g.category_id = #{item}
+            </foreach>
+        </if>
+        <if test="incurredMin != null" >
+            <![CDATA[ AND s.avg_amount >= #{incurredMin} ]]>
+        </if>
+        <if test="incurredMax != null" >
+            <![CDATA[ AND s.avg_amount <= #{incurredMax} ]]>
+        </if>
+        <if test="quantityMin != null" >
+            <![CDATA[ AND s.quantity >= #{quantityMin} ]]>
+        </if>
+        <if test="quantityMax != null" >
+            <![CDATA[ AND s.quantity <= #{quantityMax} ]]>
+        </if>
+        <if test="amountMin != null" >
+            <![CDATA[ AND s.store_amount >= #{amountMin} ]]>
+        </if>
+        <if test="amountMax != null" >
+            <![CDATA[ AND s.store_amount <= #{amountMax} ]]>
+        </if>
+        <if test="goodsNameOrCodeLike != null" >
+            <![CDATA[ AND( g.goods_code LIKE #{goodsNameOrCodeLike}  OR g.goods_name LIKE #{goodsNameOrCodeLike} OR g.mnemonic LIKE #{goodsNameOrCodeLike} OR g.bar_code LIKE #{goodsNameOrCodeLike}) ]]>
+        </if>
+        <if test="supplierId != null and supplierId != ''">
+            <![CDATA[ AND g.supplier_id IN (${supplierId}) ]]>
+        </if>
+        <if test="onlySelf == 1">
+            AND g.branch_id=#{branchId}
+        </if>
+    </sql>
+
+    <!--分页查询机构库存-->
+    <select id="queryGoodsStorePager" resultType="mapUnderscoreToCamelCase" >
+        <include refid="pagination_Head"/>
+        <include refid="order_head"/>
+        <include refid="queryGoodsStoreColumn"/>
+        <include refid="order_by"/>
+        <include refid="pagination_Tail"/>
+    </select>
+    <!--统计机构库存-->
+    <select id="queryGoodsStoreCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="queryGoodsStoreColumn"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="queryGoodsStoreColumn">
+        <![CDATA[
+        SELECT
+          g.branch_id,g.id goods_id,g.mnemonic,g.goods_code,g.purchasing_price,
+          IF (
+	      g.standard_name IS NULL or g.standard_name="",
+	      g.goods_name,
+	      concat(g.goods_name,"(",g.standard_name,")")
+          ) goods_name,g.bar_code,
+          g.short_name,
+          g.goods_status,g.combination_type,g.category_name,
+          g.sale_price,g.vip_price2,g.vip_price ,
+          g.is_for_points,g.is_store,
+          g.version,u.unit_name, uu.unit_name packing_unit_name, c.cat_name,c.cat_code,
+          s.quantity,s.store_amount,s.avg_amount,
+          s.last_update_at store_last_update_at, g.unit_relation
+        FROM
+          goods g
+          INNER JOIN category c
+            ON g.category_id = c.id
+            AND g.tenant_id = ${tenantId}
+        ]]>
+        <if test="onlyReadRootBranchGoods != null and onlyReadRootBranchGoods">
+            AND g.branch_id = #{rootBranchId}
+            AND g.branch_id in (#{branchId},#{rootBranchId})
+        </if>
+        <if test="onlyReadRootBranchGoods == null or !onlyReadRootBranchGoods">
+            AND g.branch_id in (#{branchId},#{rootBranchId})
+            <if test="onlySelf != null and onlySelf == 1">
+                AND g.branch_id = #{branchId}
+            </if>
+        </if>
+        <![CDATA[
+            AND g.is_deleted = 0
+          LEFT JOIN
+            (SELECT
+              t.*
+            FROM
+              store t
+            WHERE t.tenant_id = ${tenantId}
+              AND t.branch_id = #{branchId}) s
+            ON g.id = s.goods_id
+            AND s.is_deleted = 0
+            AND s.tenant_id = g.tenant_id
+          LEFT JOIN goods_unit u
+            ON g.goods_unit_id = u.id
+          LEFT JOIN goods_unit uu ON uu.id = g.packing_unit_id
+        WHERE 1 = 1
+        ]]>
+        <if test="catIdArray != null" >
+            <foreach collection="catIdArray" item="item" open="and ( " close=" )" separator=" or">
+                c.id = #{item}
+            </foreach>
+        </if>
+        <if test="storeGoods != null">
+            AND g.is_store = #{storeGoods}
+        </if>
+        <if test="goodsId != null">
+            AND g.id = #{goodsId}
+        </if>
+        <if test="incurredMin != null" >
+            <![CDATA[ AND s.avg_amount >= #{incurredMin} ]]>
+        </if>
+        <if test="incurredMax != null" >
+            <![CDATA[ AND s.avg_amount <= #{incurredMax} ]]>
+        </if>
+        <if test="quantityMin != null" >
+            <![CDATA[ AND s.quantity >= #{quantityMin} ]]>
+        </if>
+        <if test="quantityMax != null" >
+            <![CDATA[ AND s.quantity <= #{quantityMax} ]]>
+        </if>
+        <if test="amountMin != null" >
+            <![CDATA[ AND s.store_amount >= #{amountMin} ]]>
+        </if>
+        <if test="amountMax != null" >
+            <![CDATA[ AND s.store_amount <= #{amountMax} ]]>
+        </if>
+        <if test="goodsNameOrCodeLike != null" >
+            <![CDATA[ AND( g.goods_code LIKE #{goodsNameOrCodeLike}  OR g.goods_name LIKE #{goodsNameOrCodeLike} OR g.mnemonic LIKE #{goodsNameOrCodeLike} OR g.bar_code LIKE #{goodsNameOrCodeLike}) ]]>
+        </if>
+        <if test="barCode != null" >
+            <![CDATA[ AND g.bar_code = #{barCode} ]]>
+        </if>
+    </sql>
+
+    <!--<insert id="insert" >-->
+    <!--<selectKey keyProperty="id" resultType="java.math.BigInteger" order="AFTER">-->
+    <!--SELECT LAST_INSERT_ID()-->
+    <!--</selectKey>-->
+    <!--INSERT INTO `abc` (name,birthday) VALUES (#{barCode},now())-->
+    <!--</insert>-->
+    <sql id="queryOrderPagesMain">
+        SELECT
+        so.id,
+        so.code,
+        so.order_type,
+        so.make_name,
+        e. CODE emp_code,
+        e.login_name,
+        so.make_at,
+        sod.goods_id,
+        g.bar_code,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name,
+        gu.unit_name,
+        sod.purchase_amount,
+        sod.quantity,
+        sod.amount
+        FROM
+        store_order so
+        INNER JOIN store_order_detail sod ON sod.store_order_id = so.id
+        AND sod.tenant_id = so.tenant_id
+        AND sod.branch_id = so.branch_id
+        AND sod.is_deleted = 0
+        AND so.tenant_id = ${tenantId}
+        AND so.branch_id = #{branchId}
+        <if test="orderType!=null">
+            AND so.order_type = #{orderType}
+        </if>
+        <if test="startDate!=null">
+            AND so.make_at &gt;= '${startDate}'
+        </if>
+        <if test="endDate!=null">
+            AND so.make_at &lt;= '${endDate}'
+        </if>
+        <if test="queryStr!=null">
+            AND ( g.bar_code='${queryStr}' OR e.code='${queryStr}' OR so.code='${queryStr}' )
+        </if>
+        INNER JOIN employee e ON e.id = so.make_by
+        INNER JOIN goods g ON g.id = sod.goods_id
+        LEFT JOIN goods_unit gu ON g.goods_unit_id = gu.id
+
+    </sql>
+    <!-- mysql 分页尾 -->
+    <sql id="order_Tail2">
+        ORDER BY so.make_at DESC
+    </sql>
+    <select id="queryOrderPages" resultType="mapUnderscoreToCamelCase" >
+        <include refid="queryOrderPagesMain"/>
+        <include refid="order_Tail2"/>
+    </select>
+    <select id="queryOrderPagesCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="queryOrderPagesMain"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <sql id="queryCheckOrderPagesMain">
+        SELECT
+        c.code,
+        d.goods_id,
+        g.bar_code,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name,
+        gu.unit_name,
+        e. CODE emp_code,
+        e.login_name,
+        d.purchase_price,
+        d.really_quantity,
+        d.check_quantity,
+        d.check_amount,
+        c.make_name,
+        c.make_at
+        FROM
+        check_order c
+        INNER JOIN check_order_detail d ON d.check_order_id = c.id
+        AND d.is_deleted = 0
+        AND d.tenant_id = c.tenant_id
+        AND d.branch_id = c.branch_id
+        AND c.is_deleted = 0
+        AND c.branch_id = #{branchId}
+        AND c.tenant_id = ${tenantId}
+        AND c.make_at &gt;= '${startDate}'
+        AND c.make_at &lt;= '${endDate}'
+        INNER JOIN employee e ON e.id = c.make_by
+        INNER JOIN goods g ON g.id = d.goods_id
+        <if test="queryStr!=null">
+            AND ( g.bar_code='${queryStr}' OR e.code='${queryStr}' OR c.code='${queryStr}' )
+        </if>
+        LEFT JOIN goods_unit gu ON g.goods_unit_id = gu.id
+    </sql>
+    <sql id="order_Tail3">
+        ORDER BY c.make_at DESC
+    </sql>
+    <sql id="page_footer_tail2">
+        ) row_
+        <if test="offset!=null and rows!=null">
+            LIMIT ${offset},${rows}
+        </if>
+    </sql>
+    <select id="queryCheckOrderPages" resultType="mapUnderscoreToCamelCase" >
+        <include refid="pagination_Head"/>
+        <include refid="queryCheckOrderPagesMain"/>
+        <include refid="order_Tail3"/>
+        <include refid="page_footer_tail2"/>
+    </select>
+    <select id="queryCheckOrderPagesCount" resultType="long">
+        <include refid="count_Start_Head"/>
+        <include refid="queryCheckOrderPagesMain"/>
+        <include refid="count_Start_Tail"/>
+    </select>
+    <select id="queryStorePagerWS" resultType="mapUnderscoreToCamelCase" >
+        SELECT
+        	g.bar_code,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name,
+        	u.unit_name,
+        	g.purchasing_price,
+        	s.quantity,
+        	s.avg_amount,
+        	s.store_amount
+        FROM
+        	store s
+        INNER JOIN goods g ON s.goods_id = g.id
+        AND g.is_deleted = 0
+        AND g.is_store = 1
+        LEFT JOIN goods_unit u ON g.goods_unit_id = u.id
+        WHERE
+        	s.is_deleted = 0
+        AND s.tenant_id = ${tenantId}
+        AND s.branch_id = #{branchId}
+        <if test="barCode!=null and barCode!=''">
+            AND g.bar_code = '${barCode}'
+        </if>
+        <if test="offset!=null and rows!=null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="queryStorePagerWSCount" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        	count(*) total,
+        	sum(s.quantity) quantity,
+        	sum(s.avg_amount) avg_amount,
+        	sum(s.store_amount) store_amount
+        FROM
+        	store s
+        INNER JOIN goods g ON s.goods_id = g.id
+        AND g.is_deleted = 0
+        AND g.is_store = 1
+        LEFT JOIN goods_unit u ON g.goods_unit_id = u.id
+        WHERE
+        	s.is_deleted = 0
+        AND s.tenant_id = ${tenantId}
+        AND s.branch_id = #{branchId}
+        <if test="barCode!=null and barCode!=''">
+            AND g.bar_code = '${barCode}'
+        </if>
+    </select>
+    <select id="queryStoreAccountPagerWS" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        	sa.occur_at,
+        	sa.order_code,
+        	sa.occur_type,
+        	sa.occur_incurred,
+        	sa.occur_quantity,
+        	sa.occur_amount,
+        	g.bar_code,
+        IF (
+        g.standard_name IS NULL or g.standard_name="",
+        g.goods_name,
+        concat(g.goods_name,"(",g.standard_name,")")
+        ) goods_name,
+        	e. CODE emp_code,
+        	e.login_name,
+        	e. NAME,
+        	sa.branch_id
+        FROM
+        	store_account sa
+        INNER JOIN goods g ON sa.goods_id = g.id
+        AND sa.is_deleted = 0
+        AND g.is_deleted = 0
+        AND sa.tenant_id = ${tenantId}
+        AND sa.branch_id = #{branchId}
+        LEFT JOIN employee e ON e.id = sa.create_by
+        WHERE 1 = 1
+        <if test="startDate!=null and startDate!=''">
+            AND sa.occur_at &gt;='${startDate}:00'
+        </if>
+        <if test="endDate!=null and endDate!=''">
+            AND sa.occur_at &lt;='${endDate}:59'
+        </if>
+        order by sa.occur_at DESC
+    </select>
+    <select id="queryStoreAccountPagerWSCount" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        	count(sa.id) total,
+        	sum(sa.occur_incurred) occur_incurred,
+        	sum(sa.occur_quantity) occur_quantity,
+        	sum(sa.occur_amount) occur_amount
+        FROM
+        	store_account sa
+        INNER JOIN goods g ON sa.goods_id = g.id
+        AND sa.is_deleted = 0
+        AND g.is_deleted = 0
+        AND sa.tenant_id = ${tenantId}
+        AND sa.branch_id = #{branchId}
+        LEFT JOIN employee e ON e.id = sa.create_by
+        WHERE 1 = 1
+        <if test="startDate!=null and startDate!=''">
+            AND sa.occur_at &gt;='${startDate}:00'
+        </if>
+        <if test="endDate!=null and endDate!=''">
+            AND sa.occur_at &lt;='${endDate}:59'
+        </if>
+    </select>
+
+    <select id="selectByGoodsId" parameterType="map" resultType="erp.chain.domain.supply.store.Store">
+        select * from store
+        <where>
+            is_deleted = 0
+            <if test="tenantId != null">
+                AND tenant_id = ${tenantId}
+            </if>
+            <if test="branchId != null">
+                AND branch_id = #{branchId}
+            </if>
+            <if test="goodsId != null">
+                AND goods_id = #{goodsId}
+            </if>
+
+        </where>
+    </select>
+
+</mapper>	

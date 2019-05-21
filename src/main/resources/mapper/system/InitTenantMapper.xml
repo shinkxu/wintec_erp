@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.system.InitTenantMapper">
+    <select id="initTenant" resultType="BigInteger">
+        CALL init_tenant(${tenantid},${userid},'${loginname}','${branchName}','${phone}','${contacts}','${business}','${initType}');
+    </select>
+    <insert id="insertRestRole" >
+        INSERT INTO s_role(package_name,tenant_id,branch_id,role_code,role_name,create_by,create_at,last_update_by,last_update_at,is_deleted,role_type)
+        VALUES ('erp.chain',${tenantId},#{branchId},'01','管理员','System',now(),'System',now(),0,0),
+        ('erp.chain',${tenantId},#{branchId},'02','收银员','System',now(),'System',now(),0,1),
+        ('erp.chain',${tenantId},#{branchId},'04','店长','System',now(),'System',now(),0,3)
+    </insert>
+    <insert id="insertRetailRole" >
+        INSERT INTO s_role(package_name,tenant_id,branch_id,role_code,role_name,create_by,create_at,last_update_by,last_update_at,is_deleted,role_type)
+        VALUES ('erp.chain',${tenantId},#{branchId},'01','管理员','System',now(),'System',now(),0,0),
+        ('erp.chain',${tenantId},#{branchId},'02','收银员','System',now(),'System',now(),0,1),
+        ('erp.chain',${tenantId},#{branchId},'04','店长','System',now(),'System',now(),0,3)
+    </insert>
+    <insert id="insertRolePrivilege">
+        INSERT INTO s_role_privilege_r(role_id,privilege_id,limit_date,is_disable,tenant_id)
+        VALUES
+        <foreach collection="privileges" item="item" separator=",">
+            (#{roleId},#{item},NULL,0,#{tenantId})
+        </foreach>
+    </insert>
+    <select id="getInitInfo" resultType="mapUnderscoreToCamelCase">
+        SELECT * from business_data_template b where b.type =#{type} and b.is_deleted = 0 and b.business_id=#{businessId}
+    </select>
+    <select id="tenantLoginInit" resultType="Integer">
+        CALL proc_tenant_login_init_v070(${tenantId},#{businessId})
+    </select>
+    <insert id="tenantLoginInit2">
+        INSERT INTO goods_unit(branch_id,unit_code,unit_name,create_by,create_at,last_update_by,last_update_at,is_deleted,tenant_id,version,local_id)
+        SELECT #{branchId},code,name,"admin",NOW(),"admin",NOW(),0,${tenantId},0,NULL FROM business_data_template WHERE type=2 AND business_id=2
+    </insert>
+    <select id="countUnit" resultType="long">
+        SELECT COUNT(*) FROM goods_unit WHERE is_deleted=0 AND tenant_id=#{tenantId} AND branch_id=#{branchId}
+    </select>
+    <select id="clearBranchData" resultType="Integer">
+        CALL proc_clear_data(#{tenantId},#{branchId},#{startDate},#{endDate},#{userName},#{type})
+    </select>
+</mapper>

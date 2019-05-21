@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="erp.chain.mapper.system.BranchCommentMapper">
+    <select id="getCommentById" resultType="erp.chain.domain.system.BranchComment">
+        SELECT * FROM
+        branch_comment
+        WHERE id=#{commentId}
+        AND tenant_id=#{tenantId}
+        AND is_deleted=0
+    </select>
+    <select id="getBranchScore" resultType="mapUnderscoreToCamelCase">
+        SELECT
+        COUNT(*)count,
+        SUM(customer_score)sum_score
+        FROM branch_comment
+        WHERE tenant_id=#{tenantId}
+        AND branch_id=#{branchId}
+        GROUP BY tenant_id,branch_id
+    </select>
+    <select id="getBranchComment" resultType="mapUnderscoreToCamelCase">
+        SELECT * FROM
+        branch_comment
+        WHERE tenant_id=#{tenantId}
+        AND branch_id=#{branchId}
+        AND is_deleted=0
+        <if test="saleCode!=null">
+            AND sale_code=#{saleCode}
+        </if>
+        <if test="rows!=null and offset!=null">
+            LIMIT ${offset},${rows}
+        </if>
+    </select>
+    <select id="countBranchComment" resultType="long">
+        SELECT COUNT(1) FROM
+        branch_comment
+        WHERE tenant_id=#{tenantId}
+        AND branch_id=#{branchId}
+        AND is_deleted=0
+        <if test="saleCode!=null">
+            AND sale_code=#{saleCode}
+        </if>
+    </select>
+    <insert id="insertComment" parameterType="erp.chain.domain.system.BranchComment">
+        INSERT INTO branch_comment
+        (
+        tenant_id,
+        branch_id,
+        customer_name,
+        customer_phone,
+        customer_sex,
+        sale_code,
+        customer_score,
+        comment,
+        extra_comment,
+        created_at,
+        created_by,
+        updated_at,
+        updated_by,
+        is_deleted,
+        comment_at,
+        extra_comment_at,
+        state
+        )
+        VALUES(
+        #{tenantId},
+        #{branchId},
+        #{customerName},
+        #{customerPhone},
+        #{customerSex},
+        #{saleCode},
+        #{customerScore},
+        #{comment},
+        #{extraComment},
+        #{createdAt},
+        #{createdBy},
+        #{updatedAt},
+        #{updatedBy},
+        #{isDeleted},
+        #{commentAt},
+        #{extraCommentAt},
+        #{state}
+        )
+    </insert>
+    <update id="updateComment" parameterType="erp.chain.domain.system.BranchComment">
+        UPDATE branch_comment
+        SET
+        tenant_id=#{tenantId},
+        branch_id=#{branchId},
+        customer_name=#{customerName},
+        customer_phone=#{customerPhone},
+        customer_sex=#{customerSex},
+        sale_code=#{saleCode},
+        customer_score=#{customerScore},
+        comment=#{comment},
+        extra_comment=#{extraComment},
+        updated_at=#{updatedAt},
+        updated_by=#{updatedBy},
+        is_deleted=#{isDeleted},
+        comment_at=#{commentAt},
+        extra_comment_at=#{extraCommentAt},
+        state=#{state}
+        WHERE id=#{id}
+    </update>
+</mapper>

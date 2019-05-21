@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="erp.chain.mapper.o2o.PrepaidCardMapper" >
+    <select id="listPreCardInfo" parameterType="erp.chain.utils.SearchModel" resultType="erp.chain.domain.o2o.PrepaidCardInfo">
+        SELECT pci.*,ct.type_name card_type_name,ct.card_kind,ct.deposit FROM prepaid_card_info pci
+        INNER JOIN card_type ct ON ct.id=pci.pre_card_id AND ct.is_deleted=0 AND ct.tenant_id=pci.tenant_id
+        <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+        <include refid="erp.chain.mapper.UniversalMapper.paginationSql"></include>
+    </select>
+    <select id="countPreCard" parameterType="erp.chain.utils.SearchModel" resultType="long">
+        SELECT count(1) FROM prepaid_card_info pci <include refid="erp.chain.mapper.UniversalMapper.searchConditionSql"></include>
+    </select>
+    <insert id="batchCreateCard" >
+        INSERT INTO prepaid_card_info
+        (pre_card_id,status,card_code,store_amount,create_at,create_by,last_update_at,last_update_by,is_deleted,tenant_id,branch_id)
+        VALUES
+        <foreach collection="cardCodes" item="cardCode" separator=",">
+            (#{typeId},2,#{cardCode},#{storeAmount},NOW(),#{createBy},NOW(),#{createBy},0,#{tenantId},#{branchId})
+        </foreach>
+    </insert>
+    <select id="getUsedCode" resultType="String">
+        SELECT DISTINCT(t.card_code) FROM(
+        SELECT
+        card_code
+        FROM
+        prepaid_card_info
+        WHERE
+        tenant_id = #{tenantId} AND is_deleted=0
+        union ALL
+        SELECT
+        code card_code
+        from card
+        where tenant_id=#{tenantId} AND is_deleted=0
+        )t
+        <if test="code!=null and code!=''">
+            WHERE t.card_code=#{code}
+        </if>
+        ORDER BY t.card_code ASC
+    </select>
+    <select id="getInfoById" resultType="erp.chain.domain.o2o.PrepaidCardInfo">
+        SELECT * FROM prepaid_card_info WHERE tenant_id=#{tenantId} AND is_deleted=0 AND id=#{cardId}
+    </select>
+    <select id="getInfoByCode" resultType="erp.chain.domain.o2o.PrepaidCardInfo">
+        SELECT * FROM prepaid_card_info WHERE tenant_id=#{tenantId} AND is_deleted=0 AND card_code=#{cardCode}
+    </select>
+    <select id="listCardInfoByCodeList" resultType="erp.chain.domain.o2o.PrepaidCardInfo">
+        SELECT * FROM prepaid_card_info WHERE tenant_id=#{tenantId} AND is_deleted=0 AND
+        card_code IN (
+        <foreach collection="cardCodes" item="cardCode" separator=",">
+            #{cardCode}
+        </foreach>
+        )
+    </select>
+    <insert id="saveAccount" parameterType="erp.chain.domain.o2o.PrepaidCardAccount" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO prepaid_card_account(
+        card_id,
+        tenant_id,
+        branch_id,
+        create_by,
+        create_at,
+        last_update_by,
+        last_update_at,
+        is_deleted,
+        amount,
+        give_amount,
+        total_amount,
+        payment_id,
+        order_code,
+        op_id,
+        op_type
+        )VALUES(
+        #{cardId},
+        #{tenantId},
+        #{branchId},
+        #{createBy},
+        #{createAt},
+        #{lastUpdateBy},
+        #{lastUpdateAt},
+        #{isDeleted},
+        #{amount},
+        #{giveAmount},
+        #{totalAmount},
+        #{paymentId},
+        #{orderCode},
+        #{opId},
+        #{opType}
+        )
+    </insert>
+    <update id="updateCardAmount" parameterType="erp.chain.domain.o2o.PrepaidCardInfo">
+        UPDATE prepaid_card_info
+        SET store_amount=#{storeAmount},last_update_at=#{lastUpdateAt},last_update_by=#{lastUpdateBy}
+        <if test="preCardId!=null">
+            ,pre_card_id=#{preCardId}
+        </if>
+        <if test="createAt!=null">
+            ,create_at=#{createAt}
+        </if>
+        WHERE tenant_id=#{tenantId} AND id=#{id}
+    </update>
+    <select id="countAccount" resultType="long">
+        <include refid="countHead"></include>
+        <include refid="accountListMain"></include>
+        <include refid="countFoot"></include>
+    </select>
+    <select id="prepaidCardAccountList" resultType="mapUnderscoreToCamelCase">
+        <include refid="accountListMain"></include>
+        <include refid="pageFoot"></include>
+    </select>
+    <sql id="countHead">
+        SELECT count(1) FROM (
+    </sql>
+    <sql id="countFoot">
+        )t
+    </sql>
+    <sql id="accountListMain">
+        SELECT pci.card_code,ct.card_kind,ct.type_name,pca.op_type,pca.amount,pca.total_amount,p.payment_name,b.`name` branch_name,e.`name` emp_name,pca.create_at,pca.order_code
+        FROM
+        prepaid_card_account pca
+        INNER JOIN prepaid_card_info pci ON pca.card_id=pci.id AND pci.tenant_id=pca.tenant_id
+        INNER JOIN card_type ct ON pci.pre_card_id=ct.id AND pci.tenant_id=ct.tenant_id
+        INNER JOIN branch b ON b.id=pca.branch_id AND b.tenant_id=pca.tenant_id
+        INNER JOIN employee e ON e.id=pca.op_id AND e.tenant_id=pca.tenant_id
+        LEFT JOIN payment p ON p.id=pca.payment_id AND p.tenant_id=pca.tenant_id
+        WHERE
+        pci.tenant_id=#{tenantId}
+        AND pci.branch_id=#{branchId}
+        <if test="startTime != null">
+            AND pca.create_at &gt;= '${startTime} 00:00:00'
+        </if>
+        <if test="endTime != null">
+            AND pca.create_at &lt;= '${endTime} 23:59:59'
+        </if>
+        <if test="opId != null">
+            AND pca.op_id=#{opId}
+        </if>
+        <if test="cardCode != null">
+            AND pci.card_code=#{cardCode}
+        </if>
+        <if test="typeId != null">
+            AND ct.id=#{typeId}
+        </if>
+        <if test="opType != null">
+            AND pca.op_type=#{opType}
+        </if>
+        AND pca.is_deleted=0
+        ORDER BY pca.create_at DESC
+    </sql>
+    <sql id="pageFoot">
+        <if test="rows!=null and offset!=null">
+            limit ${offset},${rows}
+        </if>
+    </sql>
+</mapper>
